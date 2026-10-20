@@ -40,6 +40,7 @@ export function useWalk() {
   const [airportTransfer, setAirportTransfer] = useState("");
   const [airportReserve, setAirportReserve] = useState("");
   const [provider, setProvider] = useState<Provider>("offline");
+  const [miniRoute, setMiniRoute] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -123,11 +124,14 @@ export function useWalk() {
         category: category || null,
         open_only: openOnly,
         strict_amenities: strict,
+        // Unchecked: the server still builds a route when the request asks for a walk.
+        mini_route: miniRoute ? true : null,
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
       setItems(data.items);
-      setPlan(undefined);
       setSelected(undefined);
+      // A mini-route goes straight onto the map as the current itinerary.
+      setPlan(data.mini_route?.stops.length ? data.mini_route : undefined);
       if (data.origin) {
         setOrigin([data.origin.latitude, data.origin.longitude]);
         if (data.origin.label) setOriginLabel(data.origin.label);
@@ -175,6 +179,12 @@ export function useWalk() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function showPlan(p: Plan) {
+    setSelected(undefined);
+    setPlan(p);
+    setPanel("map");
   }
 
   function selectPlace(p: Poi | undefined, showMap = true) {
@@ -252,10 +262,10 @@ export function useWalk() {
       openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict,
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
-    chat: { messages, provider, setProvider, ask },
+    chat: { messages, miniRoute, setMiniRoute, ask },
     compareState: { compareIds, comparison, setComparison, toggleCompare, clearCompare, compare },
     afishaState: { afisha, setAfisha, eventChecks, checkingEvent, openAfisha, recheckEvent },
-    search, buildPlan, selectPlace, setPlan, pickOrigin,
+    search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };
 }
 

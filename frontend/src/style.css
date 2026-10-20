@@ -466,7 +466,6 @@ details[open] > summary {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-bottom: 17px;
 }
 .assistant-title > span {
   font-size: 31px;
@@ -479,11 +478,6 @@ details[open] > summary {
   font-size: 11px;
   color: var(--muted);
   margin-top: 3px;
-}
-.assistant-head select {
-  font-size: 11px;
-  background: var(--cream);
-  padding: 8px;
 }
 .conversation {
   flex: 1;
@@ -975,9 +969,6 @@ tbody th {
   .assistant-head {
     padding: 20px 24px 14px;
   }
-  .assistant-title {
-    margin-bottom: 10px;
-  }
   .privacy {
     font-size: 11px;
   }
@@ -1157,4 +1148,38 @@ tbody th {
   .brand {
     font-size: 18px;
   }
+}
+
+/* Mini-route: summary card in the chat answer and per-stop timing. */
+.mini-route {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--link);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.mini-route strong {
+  font-size: var(--fs-body-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mini-route button {
+  justify-self: start;
+}
+.chat-place .route-meta {
+  display: block;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: var(--link);
+  margin: 0 0 4px;
+}
+.route-toggle {
+  margin: 0;
+  padding: 10px 16px 0;
+  border-top: 1px solid var(--border);
+  gap: 6px;
 }

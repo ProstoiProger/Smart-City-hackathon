@@ -1,3 +1,4 @@
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -14,6 +15,10 @@ from .weather import current_weather
 from .events import recheck
 
 city = None
+ROUTE_INTENT = re.compile(
+    r"маршрут|прогул|погуля|обойти|несколько мест|серуен|бағыт|\broute\b|\bwalk|itinerary",
+    re.I,
+)
 
 
 @asynccontextmanager
@@ -63,6 +68,8 @@ class ChatRequest(SearchRequest):
     provider: Literal["offline", "gemini"] | None = None
     airport_transfer_min: int | None = Field(None, ge=0, le=240)
     airport_reserve_min: int | None = Field(None, ge=0, le=240)
+    # None: build a mini-route when the request asks for a walk/route; True/False forces it.
+    mini_route: bool | None = None
 
 
 class PlanRequest(Context):
@@ -296,7 +303,12 @@ def chat(req: ChatRequest):
     effective_query = (
         "интерактивный музей alem.ai" if historical_nur_alem else req.query
     )
-    candidates = city.search(
+    route_mode = (
+        req.mini_route
+        if req.mini_route is not None
+        else bool(ROUTE_INTENT.search(req.query))
+    )
+    pool = city.search(
         effective_query,
         req.category,
         origin,
@@ -304,24 +316,53 @@ def chat(req: ChatRequest):
         req.when,
         req.open_only,
         req.no_steps,
-        9,
+        24 if route_mode and origin else 9,
         req.strict_amenities,
         distinct_names=True,
         max_snap_m=req.max_snap_m,
     )
-    weather = current_weather()
-    picks, summary, warning = select(
-        provider,
-        req.query,
-        candidates,
-        {
-            "budget_minutes": minutes,
-            "when": req.when,
-            "steps_excluded": req.no_steps,
-            "weather": weather,
-            "flight_context": flight_context,
-        },
+    route = (
+        city.mini_route(pool, origin, minutes, req.when, req.no_steps, req.max_snap_m)
+        if route_mode and origin
+        else None
     )
+    candidates = pool[:9]
+    if route:
+        # Route stops may rank below the top 9; the model must see all of them.
+        shown = {p["poi_id"] for p in candidates}
+        candidates += [
+            next(p for p in pool if p["poi_id"] == s["poi_id"])
+            for s in route["stops"]
+            if s["poi_id"] not in shown
+        ]
+    weather = current_weather()
+    context = {
+        "budget_minutes": minutes,
+        "when": req.when,
+        "steps_excluded": req.no_steps,
+        "weather": weather,
+        "flight_context": flight_context,
+    }
+    if route:
+        context["mini_route"] = [
+            {
+                "order": i + 1,
+                "poi_id": s["poi_id"],
+                "walk_min": round(leg["duration_min"]),
+                "visit_min": s["suggested_visit_duration_min"],
+                "arrival_after_min": s["arrival_offset_min"],
+            }
+            for i, (s, leg) in enumerate(zip(route["stops"], route["legs"]))
+        ]
+    picks, summary, warning = select(provider, req.query, candidates, context)
+    if route:
+        # The answer follows the route order; stops the model skipped keep data-only text.
+        by_pick = {p["poi_id"]: p for p in picks}
+        picks = [
+            by_pick.get(s["poi_id"])
+            or {"poi_id": s["poi_id"], "why": None, "what_to_do": None, "basis": [], "generated": False}
+            for s in route["stops"]
+        ]
     byid = {p["poi_id"]: p for p in candidates}
     selected = []
     for pick in picks:
@@ -348,6 +389,13 @@ def chat(req: ChatRequest):
     )
     if selected and not origin:
         text += " Выберите начало на карте, чтобы проверить пешую доступность и построить маршрут."
+    if route:
+        text = (
+            f"Мини-маршрут: {len(route['stops'])} места за ~{round(route['total_duration_min'])} мин "
+            f"из {minutes} (пешком ~{round(route['walk_duration_min'])} мин). " + text
+        )
+    elif route_mode and origin and selected:
+        text += " Несколько мест вместе не укладываются в это время — показаны отдельные варианты."
     if flight_context:
         text = (
             f"На прогулку остаётся {minutes} мин после заданных вами резервов на трансфер и аэропорт. "
@@ -402,7 +450,21 @@ def chat(req: ChatRequest):
                     else "Локальный поиск: первые 3 кандидата, объяснения из данных"
                 ),
             },
-        ],
+        ]
+        + (
+            [
+                {
+                    "action": "Мини-маршрут",
+                    "result": (
+                        f"{len(route['stops'])} места, {round(route['total_duration_min'])} из {minutes} мин: "
+                        f"порядок и пешие отрезки по графу OSM, часы работы проверены на момент прихода"
+                    ),
+                }
+            ]
+            if route
+            else []
+        ),
+        "mini_route": route,
         "minutes": minutes,
         "generated_facts": False,
         "generated_text": generated,

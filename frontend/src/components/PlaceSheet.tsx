@@ -231,7 +231,7 @@ export function ItinerarySheet({ walk }: { walk: Walk }) {
   return (
     <section className="detail-sheet itinerary" aria-label={t("plan.region")}>
       <div className="sheet-top">
-        <span>{t("plan.yours")}</span>
+        <span>{plan.kind === "mini_route" ? t("plan.mini") : t("plan.yours")}</span>
         <button aria-label={t("detail.close")} onClick={() => walk.setPlan(undefined)}>
           <Icon name="x" />
         </button>

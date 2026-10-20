@@ -47,6 +47,7 @@ export interface Poi {
   child_ticket_price?: Price;
   estimated_visit_budget?: Price;
   suggested_visit_duration_min: number;
+  arrival_offset_min?: number;
   total_duration_min?: number;
   route?: Route;
   reasons?: string[];
@@ -148,11 +149,15 @@ export interface ChatResponse {
   steps: { action: string; result: string }[];
   origin?: { latitude: number; longitude: number; label?: string };
   minutes: number;
+  mini_route?: Plan | null;
 }
 export interface Plan {
+  kind?: "mini_route";
   stops: Poi[];
   legs: Route[];
   total_duration_min: number;
+  walk_duration_min?: number;
+  budget_minutes?: number;
   warnings: string[];
   return_trip_included: boolean;
 }

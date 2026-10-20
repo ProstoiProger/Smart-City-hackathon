@@ -1,5 +1,12 @@
 import { test, expect } from "@playwright/test";
 
+// Chat checks must not depend on a Gemini key, quota or network: force the local path.
+async function offlineChat(page: import("@playwright/test").Page) {
+  await page.route("**/api/chat", (route) =>
+    route.continue({ postData: JSON.stringify({ ...route.request().postDataJSON(), provider: "offline" }) }),
+  );
+}
+
 test("explicit subvenue tickets and event publisher checks", async ({
   page,
 }) => {
@@ -78,7 +85,7 @@ test("desktop: actual POIs, comparison, graph itinerary, search and model fallba
     page.locator(".leaflet-overlay-pane path").first(),
   ).toBeVisible();
   // Model fallback is covered by API tests; here the offline path keeps the UI test independent of keys and network.
-  await page.getByLabel("Модель помощника").selectOption("offline");
+  await offlineChat(page);
   await page.getByLabel("Куда хотите сходить?").fill("Где погулять за час?");
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(page.locator(".message.assistant").last()).toBeVisible();
@@ -92,6 +99,7 @@ test("desktop: actual POIs, comparison, graph itinerary, search and model fallba
 });
 
 test("mobile: map, filters, chat and Kazakh navigation", async ({ page }) => {
+  await offlineChat(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page.locator(".map-panel")).toBeVisible();
@@ -139,4 +147,21 @@ test("theme and language persist and the UI is fully Kazakh", async ({ page }) =
   await expect(page.locator(".results-heading")).toContainText("Табылды");
   await expect(page.locator(".place-kind").first()).not.toContainText(/Достопримечательности|Кафе и рестораны|Парки и природа/);
   expect(await page.evaluate(() => [...document.styleSheets].some((s) => (s.href || "").includes("googleapis")))).toBe(false);
+});
+
+test("chat builds a timed mini-route of up to 3 stops and draws it", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await offlineChat(page);
+  await page.getByLabel("Мини-маршрут из 3 мест").check();
+  await page.getByLabel("Куда хотите сходить?").fill("Хочу прогуляться 90 минут возле Байтерека");
+  await page.getByRole("button", { name: "Отправить", exact: true }).click();
+  const card = page.locator(".message.assistant .mini-route").last();
+  await expect(card).toContainText("Мини-маршрут");
+  await expect(page.locator(".route-meta").first()).toContainText(/^1\. через \d+ мин/);
+  await expect(page.locator(".itinerary")).toContainText("Мини-маршрут");
+  await expect(page.locator(".leaflet-overlay-pane path").first()).toBeVisible();
+  await page.locator(".itinerary").getByRole("button", { name: "Закрыть" }).click();
+  await card.getByRole("button", { name: "Показать маршрут на карте" }).click();
+  await expect(page.locator(".itinerary li").first()).toBeVisible();
 });

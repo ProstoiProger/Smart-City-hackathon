@@ -1,3 +1,4 @@
+import itertools
 import json
 import re
 from datetime import timedelta
@@ -293,7 +294,9 @@ class City:
             family_requirements.append("угол")
         if re.search(r"детск.{0,8}меню|балалар.{0,10}мәзір", query):
             family_requirements.append("меню")
-        if food_intent and not re.search(r"\bили\b|\bзатем\b|сосын|немесе", query):
+        # "кафе" alone narrows to food; "кафе и музей" keeps every named category.
+        other_category = any(re.search(rx, query) for rx, _ in ALIASES[1:])
+        if food_intent and not other_category and not re.search(r"\bили\b|\bзатем\b|сосын|немесе", query):
             preferred = {"food_drink"}
         wanted = [a for a, rx in REVIEW_INTENTS.items() if re.search(rx, query)]
         need_quiet = "quiet" in wanted
@@ -495,6 +498,122 @@ class City:
             seen.update([group, name] if name else [group])
             diverse.append(item)
         return diverse[:limit]
+
+    def mini_route(
+        self,
+        candidates,
+        origin,
+        minutes,
+        when,
+        no_steps=False,
+        max_snap_m=MAX_SNAP_M,
+        prefer=(),
+        size=3,
+        pool=16,
+    ):
+        """Best ordered set of up to `size` candidates that fits the time budget together.
+
+        Unlike plan(), the stops are chosen here: every ordered sequence of the top
+        `pool` candidates is checked on the walking graph (travel between stops, visit
+        estimates, opening hours at arrival). The best one maximizes relevance and
+        category variety and, among equal sets, walks less. Falls back to 2 stops.
+        """
+        if not origin:
+            return None
+        cands = [
+            self.byid[c["poi_id"]]
+            for c in candidates[:pool]
+            if c["poi_id"] in self.byid and not closure(self.byid[c["poi_id"]])
+        ]
+        if len(cands) < 2:
+            return None
+        relevance = {c["poi_id"]: c.get("search_score", 0) for c in candidates}
+        start = parse_when(when)
+        points = [origin] + [(p["latitude"], p["longitude"]) for p in cands]
+        stay = [0] + [
+            p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(p.get("category"), 30)
+            for p in cands
+        ]
+        # Walking legs between the start and every candidate, both directions.
+        legs = {}
+        for i, point in enumerate(points):
+            state = self.router.paths(point, no_steps, max_minutes=minutes, max_snap_m=max_snap_m)
+            if state is None:
+                if i == 0:
+                    return None
+                continue
+            for j in range(1, len(points)):
+                if j != i:
+                    route = self.router.route(point, points[j], no_steps, state)
+                    if route:
+                        legs[(i, j)] = route
+        # A walk of three near-identical objects (e.g. three rocket models in one park)
+        # is not a route: stops must not share a name stem; a repeated subcategory costs.
+        def stem(p):
+            words = re.findall(r"\w+", (p.get("display_name") or "").casefold())
+            return " ".join(words[:2])
+
+        def varied(seq):
+            stems = [stem(cands[j - 1]) for j in seq]
+            return len(set(stems)) == len(stems)
+
+        def repeats(seq):
+            subs = [cands[j - 1].get("subcategory") for j in seq]
+            return len(subs) - len(set(subs))
+
+        best = None
+        for count in (size, 2):
+            for seq in itertools.permutations(range(1, len(points)), count):
+                if not varied(seq):
+                    continue
+                elapsed, prev, arrivals, used = 0.0, 0, [], []
+                for j in seq:
+                    leg = legs.get((prev, j))
+                    if leg is None:
+                        break
+                    arrival = elapsed + leg["duration_min"]
+                    status = hours_status(cands[j - 1], start + timedelta(minutes=arrival), stay[j])
+                    elapsed = arrival + stay[j]
+                    if elapsed > minutes or status["status"] in ("closed_reported", "closed_by_schedule"):
+                        break
+                    arrivals.append(arrival)
+                    used.append(leg)
+                    prev = j
+                else:
+                    ids = [cands[j - 1]["poi_id"] for j in seq]
+                    value = (
+                        sum(relevance.get(pid, 0) for pid in ids)
+                        + 0.12 * len({cands[j - 1].get("category") for j in seq})
+                        + 0.4 * sum(pid in prefer for pid in ids)
+                        - 0.25 * repeats(seq)
+                        - 0.002 * sum(leg["duration_min"] for leg in used)
+                    )
+                    if best is None or value > best[0]:
+                        best = (value, seq, used, arrivals, elapsed)
+            if best:
+                break
+        if not best:
+            return None
+        _, seq, used, arrivals, elapsed = best
+        stops = []
+        for j, arrival in zip(seq, arrivals):
+            stop = self.public(cands[j - 1], start + timedelta(minutes=arrival), stay[j])
+            stop["arrival_offset_min"] = round(arrival)
+            stops.append(stop)
+        walk = sum(leg["duration_min"] for leg in used)
+        return {
+            "kind": "mini_route",
+            "stops": stops,
+            "legs": used,
+            "total_duration_min": round(elapsed, 1),
+            "walk_duration_min": round(walk, 1),
+            "budget_minutes": minutes,
+            "return_trip_included": False,
+            "warnings": [
+                "Порядок и время рассчитаны по пешеходному графу OSM; маршрут без возвращения к началу.",
+                "Время посещения — оценка; часы и доступность требуют уточнения.",
+            ],
+        }
 
     def plan(self, ids, origin, minutes, when, no_steps=False, max_snap_m=MAX_SNAP_M):
         current = origin

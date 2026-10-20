@@ -347,9 +347,13 @@ def test_single_testimonial_is_not_confirmed_quietness(client):
     data = client.post(
         "/api/search", json={"query": "тихое кафе", "strict_amenities": True}
     ).json()
-    # Strict mode admits only confirmed data or repeated review evidence, never one testimonial.
-    assert "dgis:70000001114648253" not in [p["poi_id"] for p in data["items"]]
+    # Strict mode admits only confirmed data or repeated review evidence, never one testimonial:
+    # this cafe may pass only through its independent review mentions (>= 2), not the testimonial.
     assert all(p["evidence"]["quiet"] in ("confirmed", "supported") for p in data["items"])
+    for p in data["items"]:
+        if p["poi_id"] == "dgis:70000001114648253":
+            assert p["evidence"]["quiet"] == "supported"
+            assert p["review_signals"]["quiet"]["positive"] >= 2
     from backend.service import confirmed_signal
 
     assert not confirmed_signal(
@@ -432,3 +436,53 @@ def test_snap_radius_comes_from_the_request(client):
         json={"query": "кафе у Хан Шатыра", "provider": "offline", "max_snap_m": 50},
     ).json()
     assert not chat["items"] and any("50 м" in w for w in chat["warnings"])
+
+
+def test_walk_request_builds_mini_route_within_budget(client):
+    data = client.post(
+        "/api/chat",
+        json={
+            "query": "Хочу прогуляться 90 минут возле Байтерека",
+            "provider": "offline",
+            "when": "2026-10-20T15:00:00",
+        },
+    ).json()
+    route = data["mini_route"]
+    assert route and route["kind"] == "mini_route"
+    assert 2 <= len(route["stops"]) <= 3 and len(route["legs"]) == len(route["stops"])
+    assert route["total_duration_min"] <= 90 and route["budget_minutes"] == 90
+    # The answer lists exactly the route stops, in route order.
+    assert [p["poi_id"] for p in data["items"]] == [s["poi_id"] for s in route["stops"]]
+    offsets = [s["arrival_offset_min"] for s in route["stops"]]
+    assert offsets == sorted(offsets)
+    assert all(s["hours_status"]["status"] not in ("closed_by_schedule", "closed_reported") for s in route["stops"])
+    assert data["answer"].startswith("Мини-маршрут")
+    assert any(s["action"] == "Мини-маршрут" for s in data["steps"])
+
+
+def test_mini_route_only_on_walk_intent_or_toggle(client):
+    base = {"provider": "offline", "when": "2026-10-20T15:00:00", "latitude": 51.089, "longitude": 71.403}
+    plain = client.post("/api/chat", json={**base, "query": "Тихое кафе поработать"}).json()
+    assert plain["mini_route"] is None
+    forced = client.post("/api/chat", json={**base, "query": "Тихое кафе", "mini_route": True, "minutes": 150}).json()
+    assert forced["mini_route"] and forced["mini_route"]["total_duration_min"] <= 150
+    off = client.post("/api/chat", json={**base, "query": "прогулка", "mini_route": False}).json()
+    assert off["mini_route"] is None
+
+
+def test_mini_route_respects_budget_variety_and_hours():
+    from backend.app import city
+    from backend.service import City
+
+    origin = (51.1282882, 71.4304546)
+    when = "2026-10-20T15:00:00"
+    for minutes in (60, 90, 150):
+        pool = city.search("", origin=origin, minutes=minutes, when=when, limit=24, distinct_names=True)
+        route = city.mini_route(pool, origin, minutes, when)
+        if route is None:
+            continue
+        assert route["total_duration_min"] <= minutes
+        stems = [" ".join(s["display_name"].casefold().split()[:2]) for s in route["stops"]]
+        assert len(set(stems)) == len(stems)
+    assert City.mini_route(city, [], origin, 60, when) is None
+    assert city.mini_route(pool, None, 60, when) is None
