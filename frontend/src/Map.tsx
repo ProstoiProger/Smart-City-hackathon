@@ -97,6 +97,17 @@ export default function CityMap({
         .on("click", () => handlers.current.onSelect(p))
         .addTo(group);
     }
+    // Show the start and what was found: results may lie far from the current view.
+    const m = map.current;
+    if (m && items.length) {
+      const bounds = L.latLngBounds(items.map((p) => [p.latitude, p.longitude] as L.LatLngTuple));
+      if (origin) bounds.extend(origin);
+      m.invalidateSize();
+      const size = m.getSize();
+      if (size.x > 0 && size.y > 0) m.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    }
+    // Refit only when a new result set arrives, not when the start pin moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
   useEffect(() => {
     const m = map.current;

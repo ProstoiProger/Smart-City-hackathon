@@ -6,8 +6,9 @@
   },
   "airport": {
     "name": "Astana airport passenger terminal",
-    "lat": 51.0276,
-    "lon": 71.4668
+    "lat": 51.0288635,
+    "lon": 71.4645061,
+    "note": "Terminal forecourt (nearest walking-network point); the terminal centre is ~210 m inside the building."
   },
   "bayterek": {
     "name": "Bayterek",

@@ -550,3 +550,47 @@ def test_events_are_timed_reachable_and_attached_to_venues(client):
     assert venue_items and venue_items[0]["events"][0]["venue_poi_id"] == venue_items[0]["poi_id"]
     quiet = client.post("/api/chat", json={"query": "тихое кафе", "provider": "offline", "when": "2026-10-20T10:00:00"}).json()
     assert all((e["walk_min"] or 99) <= 20 for e in quiet["events"])
+
+
+def test_tight_budget_keeps_nearby_places_with_short_visits(client):
+    data = client.post(
+        "/api/search",
+        json={"latitude": 51.1282882, "longitude": 71.4304546, "minutes": 30, "when": "2026-10-20T15:00:00", "limit": 100},
+    ).json()
+    # Hundreds of places are within a 15-minute walk; a 30-minute budget must not empty the list.
+    assert len(data["items"]) >= 20
+    for p in data["items"]:
+        assert p["total_duration_min"] <= 30
+        if p.get("visit_shortened"):
+            assert p["suggested_visit_duration_min"] < p["typical_visit_min"]
+            assert any("Короткий визит" in w for w in p["warnings"])
+    # A museum still needs at least half an hour inside: no fake 5-minute museum visits.
+    museums = client.post(
+        "/api/search",
+        json={"query": "музей", "latitude": 51.1282882, "longitude": 71.4304546, "minutes": 30},
+    ).json()["items"]
+    assert all(p["suggested_visit_duration_min"] >= 30 for p in museums if p["category"] == "culture")
+
+
+def test_every_landmark_start_finds_places_and_more_time_never_means_fewer(client):
+    landmarks = client.get("/api/meta").json()["landmarks"]
+    for key, lm in landmarks.items():
+        counts = []
+        for minutes in (30, 60, 120):
+            data = client.post(
+                "/api/search",
+                json={"latitude": lm["lat"], "longitude": lm["lon"], "minutes": minutes, "when": "2026-10-20T15:00:00", "limit": 50},
+            ).json()
+            assert not data["warnings"], (key, data["warnings"])
+            counts.append(len(data["items"]))
+        assert counts[0] > 0, key
+        assert counts == sorted(counts), (key, counts)
+
+
+def test_page_is_revalidated_and_bundles_are_immutable(client):
+    page = client.get("/")
+    assert page.headers["cache-control"] == "no-cache"
+    import re as _re
+
+    bundle = _re.search(r"/assets/index-[\w-]+\.js", page.text).group(0)
+    assert "immutable" in client.get(bundle).headers["cache-control"]

@@ -1,4 +1,5 @@
 import itertools
+import math
 import json
 import re
 from datetime import timedelta
@@ -41,6 +42,21 @@ DEFAULT_STAY = {
     "entertainment": 40,
     "shopping": 40,
     "sport": 45,
+}
+# Shortest visit still worth recommending when the budget is tight: a coffee,
+# a lap of a square, a quick look at a monument. Museums and shows need more.
+MIN_STAY = {
+    "food_drink": 15,
+    "nature": 15,
+    "sightseeing": 10,
+    "culture": 30,
+    "children": 20,
+    "entertainment": 30,
+    "shopping": 15,
+    "sport": 30,
+    "nightlife": 30,
+    "quiet_spaces": 20,
+    "wellness": 45,
 }
 VISIBLE = (
     "poi_id",
@@ -422,6 +438,14 @@ class City:
                     score -= 0.2
             results.append((score, p))
         results.sort(key=lambda t: t[0], reverse=True)
+        if origin:
+            # Route the candidates most likely to fit first: with a large budget the
+            # top text scores are often far away and would be routed only to be dropped.
+            reach = minutes * 75
+            results.sort(
+                key=lambda t: t[0] - 0.4 * meters(origin, (t[1]["latitude"], t[1]["longitude"])) / reach,
+                reverse=True,
+            )
         out = []
         # Route only the strongest candidates; search remains responsive with 7,570 POIs.
         for score, p in results[: max(180, limit * 3)]:
@@ -435,11 +459,14 @@ class City:
             if origin and not route:
                 continue
             travel = route["duration_min"] if route else 0
-            stay = p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(
+            full_stay = p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(
                 p.get("category"), 30
             )
-            if travel + stay > minutes:
+            # A tight budget allows a shorter visit instead of dropping the place.
+            min_stay = min(full_stay, MIN_STAY.get(p.get("category"), 15))
+            if travel + min_stay > minutes:
                 continue
+            stay = min(full_stay, math.floor(minutes - travel))
             arrival = dt + timedelta(minutes=travel)
             status = hours_status(p, arrival, stay)
             if status["status"] == "closed_by_schedule":
@@ -447,7 +474,12 @@ class City:
             if open_only and status["status"] != "open_by_schedule":
                 continue
             obj = self.public(p, arrival, stay)
-            obj["search_score"] = round(score - (travel / minutes) * 0.08, 4)
+            obj["suggested_visit_duration_min"] = stay
+            obj["typical_visit_min"] = full_stay
+            # Full visits rank above shortened ones.
+            obj["search_score"] = round(
+                score - (travel / minutes) * 0.08 - 0.15 * (1 - stay / full_stay), 4
+            )
             obj["route"] = route
             obj["total_duration_min"] = round(travel + stay, 1)
             obj["reasons"] = (
@@ -456,6 +488,11 @@ class City:
                 else ["Найдено по тексту описания"]
             )
             obj["warnings"] = []
+            if stay < full_stay:
+                obj["visit_shortened"] = True
+                obj["warnings"].append(
+                    f"Короткий визит: ~{stay} мин (обычно ~{full_stay}) — столько остаётся после дороги."
+                )
             if p.get("semantic_attributes"):
                 stems = [w[:5] for w in re.findall(r"[a-zа-яёәіңғүұқөһ]{4,}", query)]
                 relevant = [

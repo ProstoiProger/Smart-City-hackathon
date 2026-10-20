@@ -568,8 +568,19 @@ def chat(req: ChatRequest):
 
 dist = ROOT / "frontend" / "dist"
 if dist.exists():
-    app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    class HashedAssets(StaticFiles):
+        """Vite file names carry a content hash, so they can be cached for good."""
+
+        async def get_response(self, path, scope):
+            response = await super().get_response(path, scope)
+            if response.status_code == 200:
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return response
+
+    app.mount("/assets", HashedAssets(directory=dist / "assets"), name="assets")
 
     @app.get("/")
     def index():
-        return FileResponse(dist / "index.html")
+        # Always revalidate the page: after a rebuild it must point at the new hashed bundle.
+        return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
