@@ -2,7 +2,7 @@
 
 Mode: Operate. Inherit AFM's map/list/chat workflow and adapt its content to walking recommendations.
 Desktop: narrow explorer, large interactive map, assistant pane. Mobile: explicit places/map/assistant navigation.
-Surfaces: warm off-white, white; dark green primary text/actions; restrained terracotta accent. Category colours appear only on map pins and legend-like list dots.
+Surfaces: map-app look in the spirit of 2GIS (own branding, no 2GIS marks): grey canvas, white panels with soft shadows, green primary actions (#11821f), blue links, orange rating stars, round white map controls. Header: logo, pill stats (city + places, weather icon from the WMO code), Afisha pill, theme and language toggles. Explorer: grey search field with icon, quick category chips (one tap searches), compact place cards with walking time. Category colours appear on map pins, chips and list dots. Overrides live in `frontend/src/map-app.css`, loaded after `style.css`.
 Typography: self-hosted Inter (Latin, Cyrillic, Kazakh glyphs), no font CDN, so the demo renders offline. Nothing below 11px; facts separated from uncertainty.
 Themes: light and dark from design tokens in `frontend/src/tokens.css` (`[data-theme]`), chosen before first paint from the saved choice or the system setting; the OSM raster is dimmed in dark mode.
 Language: every UI string goes through `useT()` with ru/kk keys in `frontend/src/lib/i18n.ts`; `npm run build` fails on missing translations or hard-coded Cyrillic JSX text (`scripts/validate-i18n.mjs`). Data text from the backend (place names, warnings, model answers) stays as published.

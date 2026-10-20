@@ -89,10 +89,16 @@ def test_snapshot_events_labelled_honestly(client):
 
 def test_duplicate_legacy_ids_are_one_stop(client):
     data = client.post(
-        "/api/compare",
-        json={"poi_ids": ["osm:way:499328514", "dgis:70000001026995330"]},
+        "/api/plan",
+        json={
+            "poi_ids": ["osm:way:499328514", "dgis:70000001026995330"],
+            "latitude": 51.089,
+            "longitude": 71.407,
+            "minutes": 240,
+            "when": "2026-10-20T12:00:00",
+        },
     ).json()
-    assert len(data["items"]) == 1
+    assert len(data["stops"]) == 1
 
 
 def test_search_route_budget_and_graph_geometry(client):
@@ -167,7 +173,7 @@ def test_validate_location_datetime_and_provider(client):
     assert client.post("/api/plan", json={"poi_ids": ["x"]}).status_code == 422
 
 
-def test_itinerary_budget_and_comparison(client):
+def test_itinerary_budget(client):
     ctx = {
         "latitude": 51.1282882,
         "longitude": 71.4304546,
@@ -183,7 +189,7 @@ def test_itinerary_budget_and_comparison(client):
     assert plan["stops"] and plan["total_duration_min"] <= 180
     assert len(plan["stops"]) == len(plan["legs"])
     assert plan["return_trip_included"] is False
-    assert client.post("/api/compare", json={**ctx, "poi_ids": ids}).json()["items"]
+    assert client.post("/api/compare", json={**ctx, "poi_ids": ids}).status_code in (404, 405)
 
 
 def test_gemini_missing_key_falls_back(client, monkeypatch):

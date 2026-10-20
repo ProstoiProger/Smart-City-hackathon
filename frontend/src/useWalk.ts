@@ -46,8 +46,6 @@ export function useWalk() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [compareIds, setCompareIds] = useState<string[]>([]);
-  const [comparison, setComparison] = useState<Poi[]>([]);
   const [plan, setPlan] = useState<Plan>();
   const [panel, setPanel] = useState<Panel>("map");
   const [afisha, setAfisha] = useState<EventRecord[] | null>(null);
@@ -76,7 +74,9 @@ export function useWalk() {
     airport_reserve_min: airportReserve === "" ? null : Number(airportReserve),
   });
 
-  async function search() {
+  /** `nextCategory` lets a category chip search right away, before the state update lands. */
+  async function search(nextCategory?: string) {
+    const cat = nextCategory ?? category;
     const seq = ++serial.current;
     searchAbort.current?.abort();
     const controller = new AbortController();
@@ -88,7 +88,7 @@ export function useWalk() {
     try {
       const data = await request<{ items: Poi[]; warnings: string[] }>(
         "search",
-        { ...ctx(), query, category: category || null, open_only: openOnly, strict_amenities: strict, limit: 50 },
+        { ...ctx(), query, category: cat || null, open_only: openOnly, strict_amenities: strict, limit: 50 },
         controller.signal,
       );
       if (seq !== serial.current) return;
@@ -151,28 +151,7 @@ export function useWalk() {
     }
   }
 
-  function toggleCompare(p: Poi) {
-    setCompareIds((ids) =>
-      ids.includes(p.poi_id) ? ids.filter((i) => i !== p.poi_id) : ids.length < 3 ? [...ids, p.poi_id] : ids,
-    );
-  }
-
-  function clearCompare() {
-    setCompareIds([]);
-    setComparison([]);
-  }
-
-  async function compare() {
-    setError("");
-    try {
-      const data = await request<{ items: Poi[] }>("compare", { ...ctx(), poi_ids: compareIds });
-      setComparison(data.items);
-    } catch (e) {
-      setError(message(e, "err.compare"));
-    }
-  }
-
-  async function buildPlan(ids = compareIds) {
+  async function buildPlan(ids: string[]) {
     setBusy(true);
     setError("");
     try {
@@ -258,7 +237,6 @@ export function useWalk() {
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
     chat: { messages, miniRoute, setMiniRoute, ask },
-    compareState: { compareIds, comparison, setComparison, toggleCompare, clearCompare, compare },
     afishaState: { afisha, setAfisha, openAfisha },
     search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };

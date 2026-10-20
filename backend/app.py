@@ -248,33 +248,6 @@ def detail(poi_id: str):
     return city.public(city.byid[poi_id])
 
 
-@app.post("/api/compare")
-def compare(req: PlanRequest):
-    if any(pid not in city.byid for pid in req.poi_ids):
-        raise HTTPException(404, "Место не найдено")
-    items = []
-    state = (
-        city.router.paths(req.origin(), req.no_steps, max_snap_m=req.max_snap_m)
-        if req.origin()
-        else None
-    )
-    for pid in dict.fromkeys(city.byid[i]["poi_id"] for i in req.poi_ids):
-        p = city.byid[pid]
-        obj = city.public(p, req.when)
-        obj["route"] = (
-            city.router.route(
-                req.origin(), (p["latitude"], p["longitude"]), req.no_steps, state
-            )
-            if req.origin() and state is not None
-            else None
-        )
-        items.append(obj)
-    return {
-        "items": items,
-        "note": "Средний чек и входной билет — разные виды цены. Неизвестная цена не означает бесплатное посещение.",
-    }
-
-
 @app.post("/api/plan")
 def plan(req: PlanRequest):
     if req.origin() is None:

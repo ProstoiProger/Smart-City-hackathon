@@ -50,7 +50,7 @@ test("explicit subvenue tickets and afisha ticket links", async ({
   ).toBe(true);
 });
 
-test("desktop: actual POIs, comparison, graph itinerary, search and model fallback", async ({
+test("desktop: actual POIs, route to a place, search and model fallback", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -63,23 +63,11 @@ test("desktop: actual POIs, comparison, graph itinerary, search and model fallba
   await page.screenshot({ path: "../qa/desktop.png", fullPage: true });
   await page.locator(".place-main").first().click();
   await expect(page.locator(".detail-sheet")).toBeVisible();
+  // Comparison was removed: no "В сравнение" buttons anywhere.
+  await expect(page.getByRole("button", { name: "В сравнение" })).toHaveCount(0);
   await page
     .locator(".detail-sheet")
-    .getByRole("button", { name: "В сравнение", exact: true })
-    .click();
-  await page
-    .locator(".place-row")
-    .nth(1)
-    .getByRole("button", { name: "В сравнение", exact: true })
-    .click();
-  await page
-    .locator(".selection-bar")
-    .getByRole("button", { name: "Сравнить", exact: true })
-    .click();
-  await expect(page.locator(".compare-panel table")).toBeVisible();
-  await page
-    .locator(".compare-panel")
-    .getByRole("button", { name: "Собрать маршрут" })
+    .getByRole("button", { name: "Маршрут сюда", exact: true })
     .click();
   await expect(page.locator(".itinerary li").first()).toBeVisible();
   await expect(

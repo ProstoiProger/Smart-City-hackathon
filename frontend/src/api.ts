@@ -131,6 +131,8 @@ export interface Weather {
   temperature_c?: number;
   feels_like_c?: number;
   wind_kmh?: number;
+  /** WMO weather code from Open-Meteo. */
+  weather_code?: number | null;
   valid_at?: string;
   fetched_at: string;
   note: string;

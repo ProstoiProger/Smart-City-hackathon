@@ -236,7 +236,6 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
   const t = useT();
   const { lang } = usePrefs();
   const loc = locale(lang);
-  const { compareIds, toggleCompare } = walk.compareState;
   const [photo, dropPhoto] = usePhoto(p.poi_id);
   const [expanded, setExpanded] = useState(false);
   const close = (
@@ -345,10 +344,6 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
         <button className="primary icon-button" disabled={walk.busy} onClick={() => walk.buildPlan([p.poi_id])}>
           <Icon name="route" />
           {t("detail.routeHere")}
-        </button>
-        <button className="icon-button" onClick={() => toggleCompare(p)}>
-          <Icon name={compareIds.includes(p.poi_id) ? "check" : "plus"} />
-          {compareIds.includes(p.poi_id) ? t("place.remove") : t("place.add")}
         </button>
         <SourceLink url={p.website}>{t("detail.website")}</SourceLink>
       </div>

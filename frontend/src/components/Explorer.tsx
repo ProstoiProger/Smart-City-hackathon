@@ -7,6 +7,7 @@ import { usePrefs } from "../lib/prefs";
 import type { Walk } from "../useWalk";
 
 const MINUTES = [30, 45, 60, 90, 120, 180, 240];
+const CHIP_CATEGORIES = ["food_drink", "nature", "culture", "sightseeing", "children", "entertainment", "nightlife"];
 
 function Filters({ walk }: { walk: Walk }) {
   const t = useT();
@@ -23,52 +24,71 @@ function Filters({ walk }: { walk: Walk }) {
         search();
       }}
     >
-      <label htmlFor="search">{t("filters.search")}</label>
+      <label className="sr-only" htmlFor="search">
+        {t("filters.search")}
+      </label>
       <div className="search-row">
-        <input
-          id="search"
-          value={f.query}
-          onChange={(e) => f.setQuery(e.target.value)}
-          placeholder={t("filters.placeholder")}
-          maxLength={1500}
-        />
-        <button className="primary icon-button" disabled={loading}>
+        <div className="search-field">
           <Icon name="search" />
+          <input
+            id="search"
+            type="search"
+            value={f.query}
+            onChange={(e) => f.setQuery(e.target.value)}
+            placeholder={t("filters.placeholder")}
+            maxLength={1500}
+          />
+        </div>
+        <button className="primary" disabled={loading}>
           {t("filters.find")}
         </button>
       </div>
-      <div className="filter-row">
-        <label className="sr-only" htmlFor="category">
-          {t("filters.category")}
-        </label>
-        <select id="category" value={f.category} onChange={(e) => f.setCategory(e.target.value)}>
-          <option value="">{t("filters.allCategories")}</option>
-          {Object.entries(meta?.categories || {}).map(([code, label]) => (
-            <option key={code} value={code}>
-              {categoryLabel({ category: code, category_label: label }, t)}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="minutes">
-          {t("filters.time")}
-        </label>
-        <select id="minutes" value={f.minutes} onChange={(e) => f.setMinutes(+e.target.value)}>
-          {MINUTES.map((n) => (
-            <option key={n} value={n}>
-              {t("filters.minutes", { n })}
-            </option>
-          ))}
-        </select>
+      {/* Quick categories, one tap searches; tapping the active one clears it. */}
+      <div className="chips" role="group" aria-label={t("filters.category")}>
+        {CHIP_CATEGORIES.filter((code) => !meta || meta.categories[code]).map((code) => {
+          const active = f.category === code;
+          return (
+            <button
+              key={code}
+              type="button"
+              className="chip"
+              aria-pressed={active}
+              disabled={loading}
+              onClick={() => {
+                const next = active ? "" : code;
+                f.setCategory(next);
+                search(next);
+              }}
+            >
+              <span className="chip-dot" style={{ background: colors[code] || "#536656" }} />
+              {t("chip." + code)}
+            </button>
+          );
+        })}
       </div>
-      <label htmlFor="origin">{t("filters.start")}</label>
-      <select id="origin" value={landmark} onChange={(e) => f.setLandmark(e.target.value)}>
-        <option value="custom">{f.originLabel}</option>
-        {Object.entries(meta?.landmarks || {}).map(([key, p]) => (
-          <option key={key} value={key}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <div className="start-row">
+        <div>
+          <label htmlFor="origin">{t("filters.start")}</label>
+          <select id="origin" value={landmark} onChange={(e) => f.setLandmark(e.target.value)}>
+            <option value="custom">{f.originLabel}</option>
+            {Object.entries(meta?.landmarks || {}).map(([key, p]) => (
+              <option key={key} value={key}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="minutes">{t("filters.time")}</label>
+          <select id="minutes" value={f.minutes} onChange={(e) => f.setMinutes(+e.target.value)}>
+            {MINUTES.map((n) => (
+              <option key={n} value={n}>
+                {t("filters.minutes", { n })}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="origin-actions">
         <button
           type="button"
@@ -156,7 +176,6 @@ function Results({ walk }: { walk: Walk }) {
   const { lang } = usePrefs();
   const loc = locale(lang);
   const { items, loading, selected, selectPlace } = walk;
-  const { compareIds, toggleCompare } = walk.compareState;
   return (
     <>
       <div className="results-heading">
@@ -171,68 +190,40 @@ function Results({ walk }: { walk: Walk }) {
           </div>
         ) : (
           items.map((p) => {
-            const chosen = compareIds.includes(p.poi_id);
             return (
               <article key={p.poi_id} className={"place-row " + (selected?.poi_id === p.poi_id ? "selected" : "")}>
                 <button className="place-main" onClick={() => selectPlace(p)}>
-                  <span className="category-dot" style={{ background: colors[p.category] || "#536656" }} />
-                  <span>
-                    <span className="place-kind">{categoryLabel(p, t)}</span>
+                  <span className="place-text">
                     <h3>{p.display_name}</h3>
-                    <p>{p.address || t("place.noAddress")}</p>
-                    <div className="place-meta">
-                      {p.route && <span>{t("place.walk", { n: Math.ceil(p.route.duration_min) })}</span>}
-                      <span>
-                        {p.rating
-                          ? t("place.rating", {
-                              r: p.rating,
-                              n: p.ratings_count?.toLocaleString(loc) || t("place.ratingNoCount"),
-                            })
-                          : t("place.noRating")}
+                    <span className="place-kind">
+                      <span className="category-dot" style={{ background: colors[p.category] || "#536656" }} />
+                      {categoryLabel(p, t)}
+                    </span>
+                    {p.rating ? (
+                      <span className="place-rating">
+                        <Icon name="star-solid" />
+                        <b>{p.rating}</b>
+                        {p.ratings_count ? <span>{t("place.ratingCount", { n: p.ratings_count.toLocaleString(loc) })}</span> : null}
                       </span>
-                    </div>
+                    ) : (
+                      <span className="place-rating none">{t("place.noRating")}</span>
+                    )}
+                    <span className="place-address">{p.address || t("place.noAddress")}</span>
+                    <span className="place-price">{money(p, t, loc)}</span>
                   </span>
+                  {p.route && (
+                    <span className="place-walk">
+                      <Icon name="route" />
+                      {t("place.walkShort", { n: Math.ceil(p.route.duration_min) })}
+                    </span>
+                  )}
                 </button>
-                <div className="row-foot">
-                  <small>{money(p, t, loc)}</small>
-                  <button
-                    className="text-button icon-button"
-                    aria-pressed={chosen}
-                    disabled={!chosen && compareIds.length >= 3}
-                    onClick={() => toggleCompare(p)}
-                  >
-                    <Icon name={chosen ? "check" : "plus"} />
-                    {chosen ? t("place.remove") : t("place.add")}
-                  </button>
-                </div>
               </article>
             );
           })
         )}
       </div>
     </>
-  );
-}
-
-function SelectionBar({ walk }: { walk: Walk }) {
-  const t = useT();
-  const { compareIds, compare, clearCompare } = walk.compareState;
-  if (!compareIds.length) return null;
-  return (
-    <div className="selection-bar">
-      <span>{t("selection.count", { n: compareIds.length })}</span>
-      <button className="icon-button" onClick={compare}>
-        <Icon name="scale" />
-        {t("selection.compare")}
-      </button>
-      <button className="primary icon-button" disabled={walk.busy} onClick={() => walk.buildPlan()}>
-        <Icon name="route" />
-        {t("selection.plan")}
-      </button>
-      <button className="icon-button" aria-label={t("selection.clear")} onClick={clearCompare}>
-        <Icon name="x" />
-      </button>
-    </div>
   );
 }
 
@@ -246,7 +237,6 @@ export function Explorer({ walk }: { walk: Walk }) {
       </div>
       <Filters walk={walk} />
       <Results walk={walk} />
-      <SelectionBar walk={walk} />
     </aside>
   );
 }

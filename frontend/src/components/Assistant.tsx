@@ -9,7 +9,7 @@ import { Explanation } from "./Explanation";
 
 const SUGGESTIONS = ["chat.s1", "chat.s2", "chat.s3"];
 
-export function Assistant({ walk }: { walk: Walk }) {
+export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) {
   const t = useT();
   const { lang } = usePrefs();
   const { messages, miniRoute, setMiniRoute, ask } = walk.chat;
@@ -37,6 +37,9 @@ export function Assistant({ walk }: { walk: Walk }) {
             <h2>{t("nav.chat")}</h2>
             <p>{t("chat.subtitle")}</p>
           </div>
+          <button className="chat-hide" aria-label={t("chat.hide")} title={t("chat.hide")} onClick={onHide}>
+            <Icon name="chevron-right" />
+          </button>
         </div>
       </div>
       <div className="conversation" aria-live="polite">
