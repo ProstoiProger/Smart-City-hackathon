@@ -1,0 +1,36 @@
+# Secrets: keys live only in local .env files (templates: .env.example)
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend tooling (frontend/dist is committed: the app runs without Node)
+node_modules/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/stats.html
+
+# Third-party review texts (2GIS): kept locally, not published
+collector/output/
+collector/data/raw/
+collector/data/processed/
+
+# Local artifacts
+*.log
+*.tmp
+*.zip
+SHA256SUMS.txt
+.claude/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

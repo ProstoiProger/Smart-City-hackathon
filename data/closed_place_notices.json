@@ -1,0 +1,12 @@
+[
+  {
+    "place_name": "Музей энергии будущего NUR ALEM",
+    "status": "permanently_closed_as_museum",
+    "effective_since": "2024-12",
+    "successor_place_id": "official:alem_ai_museum",
+    "source_url": "https://qazexpocongress.kz/ru/nur-alem/",
+    "collected_at": "2026-10-19T10:01:52.276440+00:00",
+    "evidence": "С декабря 2024 года Музей энергии будущего завершил свою работу и прекратил прием посетителей.",
+    "note": "Building and EXPO territory are not closed. Old museum hours on the same page are historical."
+  }
+]

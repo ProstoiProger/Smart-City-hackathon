@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-10-20T12:53:26.629759+00:00",
+  "pois_with_signals": 2100,
+  "by_attribute_status": {
+    "accessibility": {
+      "single_mention": 42,
+      "contradicted": 93,
+      "mixed": 4,
+      "supported": 3
+    },
+    "interactive": {
+      "supported": 65,
+      "single_mention": 49,
+      "contradicted": 4,
+      "mixed": 10
+    },
+    "kids": {
+      "supported": 165,
+      "single_mention": 200,
+      "contradicted": 117,
+      "mixed": 53
+    },
+    "laptop_work": {
+      "single_mention": 242,
+      "contradicted": 22,
+      "supported": 144,
+      "mixed": 12
+    },
+    "power_outlets": {
+      "single_mention": 172,
+      "contradicted": 58,
+      "mixed": 8,
+      "supported": 13
+    },
+    "quiet": {
+      "supported": 469,
+      "contradicted": 201,
+      "single_mention": 664,
+      "mixed": 111
+    },
+    "view": {
+      "supported": 37,
+      "single_mention": 111,
+      "contradicted": 3
+    },
+    "wifi": {
+      "contradicted": 69,
+      "mixed": 13,
+      "single_mention": 100,
+      "supported": 19
+    }
+  },
+  "models": [
+    "gemini-3.6-flash"
+  ],
+  "method": "regex prefilter -> Gemini claim classification with verbatim quote check -> per-POI counts",
+  "caveat": "Visitor statements from the first public reviews page; not verified properties."
+}

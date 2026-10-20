@@ -1,0 +1,100 @@
+[
+  {
+    "scenario_id": "coffee",
+    "request": "Кофейня рядом с MEGA Silk Way",
+    "required_fields": [
+      "opening_hours"
+    ],
+    "candidate_count": 176,
+    "candidate_count_scope": "Fields and category only; coffee additionally within 2km of MEGA, night additionally has late weekly hours. Airport time budget is not checked.",
+    "example_poi_ids": [
+      "osm:node:11783576043",
+      "osm:node:14275682079",
+      "osm:node:9047331879",
+      "osm:node:11290690869",
+      "osm:node:11925892164"
+    ],
+    "data_ready": true,
+    "missing_runtime_context": [],
+    "application_end_to_end_tested": false,
+    "limitations": "Source claims only. Router, weather refresh and app recommendation behaviour must be tested in the actual application."
+  },
+  {
+    "scenario_id": "quiet",
+    "request": "Тихое кафе с розеткой",
+    "required_fields": [
+      "quiet_place",
+      "power_outlets",
+      "wifi_available"
+    ],
+    "candidate_count": 0,
+    "candidate_count_scope": "Fields and category only; coffee additionally within 2km of MEGA, night additionally has late weekly hours. Airport time budget is not checked.",
+    "example_poi_ids": [],
+    "data_ready": false,
+    "missing_runtime_context": [],
+    "application_end_to_end_tested": false,
+    "limitations": "Source claims only. Router, weather refresh and app recommendation behaviour must be tested in the actual application."
+  },
+  {
+    "scenario_id": "child",
+    "request": "Прогулка с ребёнком",
+    "required_fields": [
+      "playground"
+    ],
+    "candidate_count": 349,
+    "candidate_count_scope": "Fields and category only; coffee additionally within 2km of MEGA, night additionally has late weekly hours. Airport time budget is not checked.",
+    "example_poi_ids": [
+      "osm:way:684508280",
+      "osm:way:1102779048",
+      "osm:way:1333462048",
+      "osm:way:556574293",
+      "osm:way:556574294"
+    ],
+    "data_ready": true,
+    "missing_runtime_context": [],
+    "application_end_to_end_tested": false,
+    "limitations": "Source claims only. Router, weather refresh and app recommendation behaviour must be tested in the actual application."
+  },
+  {
+    "scenario_id": "airport",
+    "request": "Достопримечательности за 2 часа до вылета",
+    "required_fields": [
+      "suggested_visit_duration_min"
+    ],
+    "candidate_count": 180,
+    "candidate_count_scope": "Fields and category only; coffee additionally within 2km of MEGA, night additionally has late weekly hours. Airport time budget is not checked.",
+    "example_poi_ids": [
+      "osm:way:240860325",
+      "osm:relation:16827715",
+      "osm:way:230401645",
+      "osm:relation:18901938",
+      "osm:way:240921034"
+    ],
+    "data_ready": false,
+    "missing_runtime_context": [
+      "flight time, boarding/security buffer and fresh travel time from selected POI"
+    ],
+    "application_end_to_end_tested": false,
+    "limitations": "Source claims only. Router, weather refresh and app recommendation behaviour must be tested in the actual application."
+  },
+  {
+    "scenario_id": "night",
+    "request": "Поздние заведения",
+    "required_fields": [
+      "opening_hours"
+    ],
+    "candidate_count": 549,
+    "candidate_count_scope": "Fields and category only; coffee additionally within 2km of MEGA, night additionally has late weekly hours. Airport time budget is not checked.",
+    "example_poi_ids": [
+      "osm:node:6698615689",
+      "osm:node:12686474701",
+      "osm:way:278179906",
+      "osm:node:2826099699",
+      "osm:way:242346779"
+    ],
+    "data_ready": true,
+    "missing_runtime_context": [],
+    "application_end_to_end_tested": false,
+    "limitations": "Source claims only. Router, weather refresh and app recommendation behaviour must be tested in the actual application."
+  }
+]

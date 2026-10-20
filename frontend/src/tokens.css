@@ -1,0 +1,107 @@
+/* Self-hosted Inter (SIL OFL 1.1): Latin, Cyrillic and Kazakh glyphs, no external CDN,
+   so the demo renders the same without internet. */
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/inter-latin.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2191, U+2193, U+25A0-25FF;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/inter-cyrillic.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/inter-cyrillic-ext.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+:root {
+  color-scheme: light;
+  --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* Type scale: nothing below 11px; labels and body stay readable for every visitor. */
+  --fs-micro: 11px;
+  --fs-caption: 12px;
+  --fs-body-sm: 13px;
+  --fs-body: 14px;
+  --fs-h3: 15px;
+  --fs-h2: 19px;
+  --fs-h1: 30px;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 14px;
+
+  /* Light: warm off-white surfaces, dark green ink, terracotta accent (see DESIGN.md). */
+  --bg: #f6f5f0;
+  --surface-1: #ffffff;
+  --surface-2: #f6f5f0;
+  --surface-hover: #edf1e9;
+  --surface-selected: #e8ede3;
+  --text-1: #24372e;
+  --text-2: #5a675e;
+  --text-on-accent: #ffffff;
+  --border: #dce0d7;
+  --border-strong: #c3ccc0;
+  --accent: #173d32;
+  --accent-hover: #285c4a;
+  --link: #173d32;
+  --highlight: #a34f26;
+  --highlight-bg: rgba(163, 79, 38, 0.07);
+  --focus: #b16c31;
+  --warn-bg: #fff9e7;
+  --warn-fg: #6f4919;
+  --warn-border: #dac994;
+  --error-bg: #fff0e8;
+  --error-fg: #813d22;
+  --error-border: #d9b39d;
+  --map-bg: #e2e8df;
+  --cluster-ring: #a3b9a7aa;
+  --cluster-core: #d5e2d3;
+  --cluster-text: #193e30;
+  --route-1: #173d32;
+  --route-2: #b26032;
+  --shadow-1: 0 3px 12px rgba(32, 58, 40, 0.12);
+  --shadow-2: 0 5px 24px rgba(32, 58, 40, 0.19);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1613;
+  --surface-1: #151f1b;
+  --surface-2: #121a17;
+  --surface-hover: #1e2b25;
+  --surface-selected: #22322b;
+  --text-1: #e5ebe6;
+  --text-2: #a7b4ab;
+  --text-on-accent: #ffffff;
+  --border: #2a3832;
+  --border-strong: #3a4b43;
+  --accent: #2e7a5c;
+  --accent-hover: #379170;
+  --link: #8fd1b0;
+  --highlight: #e8a37a;
+  --highlight-bg: rgba(232, 163, 122, 0.09);
+  --focus: #e8a37a;
+  --warn-bg: #2b2310;
+  --warn-fg: #f0cb8d;
+  --warn-border: #5a4920;
+  --error-bg: #32190f;
+  --error-fg: #f4ad8e;
+  --error-border: #6b3826;
+  --map-bg: #1a2420;
+  --cluster-ring: #4d6b5799;
+  --cluster-core: #2c4337;
+  --cluster-text: #e5ebe6;
+  --route-1: #6fd3a4;
+  --route-2: #f0a070;
+  --shadow-1: 0 3px 12px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 6px 26px rgba(0, 0, 0, 0.55);
+}

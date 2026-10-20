@@ -1,0 +1,25 @@
+{
+  "created_at": "2026-10-19T10:25:00.781453+00:00",
+  "raw_highway_ways": 38678,
+  "foot_permitted_ways": 38073,
+  "graph_nodes": 166683,
+  "directed_edges": 391338,
+  "weak_components": 200,
+  "largest_component_nodes": 159363,
+  "poi_with_snap_within_80m": 7461,
+  "candidate_routes": 58029,
+  "pedestrian_areas": 69,
+  "mapped_path_closures_or_construction": 79,
+  "exclusions": {
+    "access_restricted": 520,
+    "excluded_highway_type": 85
+  },
+  "limitations": [
+    "Network distances are calculated on OSM geometry, not straight lines.",
+    "POI-to-network snaps are unverified straight-line associations, excluded from reported walking distance. Routes are candidates, not verified door-to-door directions.",
+    "Missing paths and crossings cause disconnected components. No artificial joins are added.",
+    "Construction and access tags reflect map observations, not live closure reports. Conditional restrictions are flagged but not evaluated by time.",
+    "Wheelchair accessibility is unknown unless independently verified; steps and restricted access are excluded only from their applicable profiles.",
+    "Vehicle oneway is ignored for pedestrians; explicit oneway:foot is respected. Turn restriction relations and indoor passage routing are not supported."
+  ]
+}

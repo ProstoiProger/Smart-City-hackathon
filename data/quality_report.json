@@ -1,0 +1,44 @@
+{
+  "input_pois": 7570,
+  "canonical_pois": 7431,
+  "added_context_and_subvenue_pois": 2,
+  "merged_records": 141,
+  "merge_operations": 141,
+  "ambiguous_pairs_not_merged": 124,
+  "source_records_with_2gis_attributes": 4610,
+  "canonical_source_backed_names": 5810,
+  "recommendation_eligible": 5703,
+  "events": 103,
+  "taxonomy_raw_values": 122,
+  "taxonomy_codes": 91,
+  "rating_prior": {
+    "mean": 4.5,
+    "pseudo_count": 245
+  },
+  "refinement": {
+    "richer_factual_summaries": 4863,
+    "with_child_facilities": 748,
+    "with_grounded_attributes": 4911,
+    "with_branch_prices": 2610,
+    "with_published_constraints": 1398,
+    "new_primary_schedules": 1,
+    "restricted_pois_excluded": 76,
+    "subvenues_with_explicit_ticket_cards": 2,
+    "candidate_pairs_reviewed": 124,
+    "candidate_decisions": {
+      "insufficient_identity_evidence_keep_separate": 53,
+      "separate_service_units_at_same_address": 10,
+      "different_or_unmatched_addresses_keep_separate": 34,
+      "same_address_identity_not_proven_keep_facts_separate": 27
+    },
+    "unknown_fields_preserved": true,
+    "backlog_records": 7411,
+    "nearby_brand_diversity": "one suggestion per same-brand 150m group; facts never transferred between unresolved entities"
+  },
+  "limitations": [
+    "Proximity is not definitive identity; unresolved pairs remain separate.",
+    "The two President Park OSM centres are over 1km apart; not auto-merged by name.",
+    "Attributes are source claims, not independent verification.",
+    "The historical Nur Alem museum is closed; no historic opening hours are applied to alem.ai."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "available": true,
+  "stale": false,
+  "source": "Open-Meteo",
+  "source_url": "https://open-meteo.com/en/docs",
+  "weather_kind": "current_model_estimate",
+  "fetched_at": "2026-10-19T15:02:33.498262+00:00",
+  "valid_at": "2026-10-19T15:00:00+00:00",
+  "city": "Астана",
+  "temperature_c": 10.1,
+  "feels_like_c": 5.7,
+  "precipitation_mm": 0.0,
+  "wind_kmh": 18.3,
+  "weather_code": 3,
+  "note": "Оценка погодной модели для центра города; не измерение у выбранного входа."
+}

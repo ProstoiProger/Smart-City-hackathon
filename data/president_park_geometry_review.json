@@ -1,0 +1,25 @@
+{
+  "source": "OpenStreetMap API way/full",
+  "ways": [
+    243041606,
+    112177946
+  ],
+  "intersects": false,
+  "overlap_ratio": 0.0,
+  "bounds": {
+    "243041606": [
+      71.4389641,
+      51.106049,
+      71.4505729,
+      51.120747
+    ],
+    "112177946": [
+      71.4469974,
+      51.1195459,
+      71.4688497,
+      51.1301187
+    ]
+  },
+  "decision": "distinct_non_overlapping_park_geometries",
+  "geometry_source": "https://www.openstreetmap.org/api/0.6/way/{id}/full.json"
+}

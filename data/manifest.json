@@ -1,0 +1,17 @@
+{
+  "pois": 7431,
+  "nodes": 166683,
+  "directed_edges": 391338,
+  "closure_flags_applied": 185,
+  "excluded_edges": {},
+  "date": "2026-10-19",
+  "all_venue_prices_rules_closures_complete": false,
+  "warnings": [
+    "Snapshot, not live availability.",
+    "Venue conditions remain incomplete.",
+    "OSM routes use unverified snaps up to 150m to the main walking network; no verified door-to-door access.",
+    "No user data is persisted."
+  ],
+  "source_pois": 7570,
+  "quality_report": "quality_report.json"
+}

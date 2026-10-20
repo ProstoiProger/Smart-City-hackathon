@@ -1,0 +1,12 @@
+# Astana Walk interface
+
+Mode: Operate. Inherit AFM's map/list/chat workflow and adapt its content to walking recommendations.
+Desktop: narrow explorer, large interactive map, assistant pane. Mobile: explicit places/map/assistant navigation.
+Surfaces: warm off-white, white; dark green primary text/actions; restrained terracotta accent. Category colours appear only on map pins and legend-like list dots.
+Typography: self-hosted Inter (Latin, Cyrillic, Kazakh glyphs), no font CDN, so the demo renders offline. Nothing below 11px; facts separated from uncertainty.
+Themes: light and dark from design tokens in `frontend/src/tokens.css` (`[data-theme]`), chosen before first paint from the saved choice or the system setting; the OSM raster is dimmed in dark mode.
+Language: every UI string goes through `useT()` with ru/kk keys in `frontend/src/lib/i18n.ts`; `npm run build` fails on missing translations or hard-coded Cyrillic JSX text (`scripts/validate-i18n.mjs`). Data text from the backend (place names, warnings, model answers) stays as published.
+Structure (after AFM): `useWalk.ts` holds state and API actions; `components/` render TopBar, Explorer, MapPanel/PlaceSheet, Assistant and overlays; `lib/` has prefs, i18n, format, Icon (Lucide sprite), BackendStatus banner and ErrorBoundary per panel.
+Accessibility: `tests/a11y.spec.ts` runs axe (WCAG 2.1 A/AA) for light/dark × ru/kk × desktop/mobile, including an open place card.
+Core interaction: selecting a result reveals its route and sourced card; choosing up to three places enables comparison and a sequential itinerary.
+Loading, empty, network/model failure and unknown data are explicit. Geolocation occurs only on button activation. Route snap caveats remain visible.

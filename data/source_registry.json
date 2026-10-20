@@ -1,0 +1,129 @@
+[
+  {
+    "source": "OpenStreetMap",
+    "url": "https://www.openstreetmap.org/copyright",
+    "status": "collected",
+    "license": "ODbL-1.0",
+    "scope": "POIs, mapped amenities, transit stops, barriers and pedestrian graph",
+    "attribution": "© OpenStreetMap contributors",
+    "note": "Attribution and ODbL obligations apply. OSM tags are map observations, not independent live verification."
+  },
+  {
+    "source": "Visit Astana",
+    "url": "https://visitastana.kz/ru/",
+    "status": "partially_collected_with_quarantine",
+    "license": null,
+    "scope": "Tourism directory descriptions, restaurants, schedules, contacts, average checks and event listings",
+    "note": "No general reuse license established. Text kept with attribution for research. Do not treat these texts as ODbL or assume photos are licensed. Some pages contain unrelated spam and are quarantined."
+  },
+  {
+    "source": "National Museum of Kazakhstan",
+    "url": "https://nmrk.kz/ru/",
+    "status": "collected",
+    "license": null,
+    "scope": "Hours, accessibility, visit rules, conditional discounts and one dated exhibition",
+    "note": "Published self-reports, retrieved at collection time. No independent on-site verification or general text reuse license."
+  },
+  {
+    "source": "Kazakhstan.travel",
+    "url": "https://kazakhstan.travel/ru/attractions/423",
+    "status": "collected",
+    "license": null,
+    "scope": "Bayterek published adult, child and concession prices",
+    "note": "Price validity dates are not published. Coordinates from this page disagree with OSM and were not adopted."
+  },
+  {
+    "source": "Wikimedia Commons",
+    "url": "https://commons.wikimedia.org/",
+    "status": "collected",
+    "license": "per_image",
+    "scope": "Photo URLs, authors, credit and explicit license metadata",
+    "note": "Metadata only, no images downloaded. Category membership does not independently verify the depicted subject. Follow each image license."
+  },
+  {
+    "source": "Open-Meteo",
+    "url": "https://open-meteo.com/en/docs",
+    "status": "collected",
+    "license": "CC-BY-4.0",
+    "scope": "Current weather, apparent temperature, wind, precipitation forecast and sunset",
+    "attribution": "Weather data by Open-Meteo.com",
+    "note": "Refresh at query time; this is a timestamped snapshot. No official severe-weather alert feed."
+  },
+  {
+    "source": "data.egov.kz",
+    "url": "https://data.egov.kz/pages/samples",
+    "status": "catalogue_metadata_only",
+    "license": null,
+    "scope": "Two archived Astana park datasets identified",
+    "note": "Archived entries are not used as current POI facts. Developer API key is required for API records; no key was available in this session."
+  },
+  {
+    "source": "2GIS Places API",
+    "url": "https://docs.2gis.com/en/api/search/places/overview",
+    "status": "collected_and_merged",
+    "license": "2GIS proprietary",
+    "scope": "Saved provider records, ratings/counts, schedules, explicit amenity attributes, entrances and nearby stations",
+    "note": "Collected at the user's explicit request. Data remains proprietary and is not relicensed as ODbL. Search coverage and outstanding tasks are recorded in dgis_collection_report.json.",
+    "terms_url": "https://law.2gis.ru/webapi-offer",
+    "access_checked_at": "2026-10-19T09:14:53.605124+00:00",
+    "requests_in_access_check": 2,
+    "records": 5158,
+    "collection_complete": true
+  },
+  {
+    "source": "Google Places API",
+    "url": "https://developers.google.com/maps/documentation/places/web-service/reference/rest/v1/places",
+    "status": "not_collected_no_api_key",
+    "license": null,
+    "scope": "Potential rating and business-status verification",
+    "note": "No API key available. Do not treat API content as a freely redistributable permanent database."
+  },
+  {
+    "source": "2GIS Routing API",
+    "url": "https://docs.2gis.com/api/navigation/routing/start",
+    "status": "sampled_public_transport_routes",
+    "license": "2GIS proprietary",
+    "scope": "Route variants, walking and waiting legs between fixed public demo landmarks",
+    "note": "Snapshots, not a complete city bus timetable or guaranteed arrival time. See transit_summary.json and dgis_transit_access.json."
+  },
+  {
+    "source": "Kazhydromet",
+    "url": "https://www.kazhydromet.kz/ru/storm",
+    "status": "collected_official_warning_snapshot",
+    "license": null,
+    "scope": "Published Astana warnings, region filter 20 confirmed by response",
+    "note": "Refresh at request time and read the published validity interval. Retrieval does not independently verify current hazards."
+  },
+  {
+    "source": "Wikidata",
+    "url": "https://www.wikidata.org/",
+    "status": "collected_by_explicit_osm_identity_links",
+    "license": "CC0-1.0",
+    "scope": "Labels, brief entity descriptions and P18 image links",
+    "note": "Wikidata facts are linked by explicit OSM wikidata identifiers; image files retain their individual Commons licenses."
+  },
+  {
+    "source": "Freedom Ticketon",
+    "url": "https://ticketon.kz/astana",
+    "status": "collected_structured_event_listings",
+    "license": null,
+    "scope": "Dated Astana occurrences, starting prices, age restrictions and publisher status",
+    "note": "Foreign-city events and multi-city cinema catalogues excluded. Publisher status is not independent confirmation with an organiser."
+  },
+  {
+    "source": "Venue websites",
+    "url": "https://alem.ai/",
+    "status": "collected_finite_explicit_pages",
+    "license": null,
+    "scope": "Official venue prices, rules, descriptions, contacts and closure notices; exact URLs in facts.jsonl",
+    "note": "Includes Ailand, alem.ai, Astana botanical greenhouses, selected cafes and coworkings. Scope limits and subjective testimonials are retained per fact."
+  },
+  {
+    "source": "Astana News",
+    "url": "https://astanews.kz/",
+    "status": "collected_two_editorial_branch_listings",
+    "license": null,
+    "scope": "Outlets, Wi-Fi and laptop use at Barista Coffee on Koshkarbaev 8 and Tary on Akmeshit",
+    "note": "Editorial source claims, not independent inspection or venue guarantees. Exact branch IDs, evidence and scope recorded in facts.jsonl."
+  }
+]

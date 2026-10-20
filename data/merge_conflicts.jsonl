@@ -1,0 +1,3 @@
+{"poi_id":"osm:node:7569174946","field":"is_24_7","claims":[{"source_id":"osm:node:7569174946","value":false},{"source_id":"osm:node:6494912583","value":true}],"resolution":"unknown"}
+{"poi_id":"osm:node:5890019985","field":"wifi_available","claims":[{"source_id":"osm:node:5890019985","value":false},{"source_id":"dgis:70000001055336448","value":true}],"resolution":"unknown"}
+{"poi_id":"osm:node:12364973050","field":"is_24_7","claims":[{"source_id":"osm:node:12364973050","value":true},{"source_id":"dgis:70000001056716743","value":false}],"resolution":"unknown"}

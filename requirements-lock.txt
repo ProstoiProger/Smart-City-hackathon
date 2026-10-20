@@ -1,0 +1,12 @@
+# Direct dependency versions used for the delivered verification.
+# Python 3.11-3.13; verified on 3.13.14. Use for reproducible index compatibility.
+fastapi==0.135.3
+uvicorn==0.43.0
+httpx==0.28.1
+python-dotenv==1.2.2
+numpy==2.3.5
+scipy==1.17.0
+scikit-learn==1.8.0
+joblib==1.5.3
+pydantic==2.12.5
+pytest==9.0.2

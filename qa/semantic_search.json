@@ -1,0 +1,74 @@
+{
+  "canonical_pois": 7431,
+  "source_pois": 7570,
+  "id_aliases": 7570,
+  "lexical_index": "passed",
+  "neural_index_shape": [
+    7431,
+    384
+  ],
+  "normalized_vectors": true,
+  "fingerprint_matches_current_documents": true,
+  "queries": [
+    {
+      "query": "тихое кафе для работы",
+      "results": [
+        {
+          "poi_id": "dgis:70000001114648253",
+          "name": "Vo Dvore, кафе",
+          "category": "food_drink",
+          "score": 1.2214,
+          "warnings": [
+            "Тишина упомянута в отдельном отзыве; обстановка не измерена и не гарантирована."
+          ]
+        },
+        {
+          "poi_id": "dgis:70000001077134992",
+          "name": "SF",
+          "category": "food_drink",
+          "score": 1.186,
+          "warnings": [
+            "Тихая обстановка не подтверждена"
+          ]
+        },
+        {
+          "poi_id": "dgis:70000001099770615",
+          "name": "Delish",
+          "category": "food_drink",
+          "score": 1.1837,
+          "warnings": [
+            "Тихая обстановка не подтверждена"
+          ]
+        }
+      ]
+    },
+    {
+      "query": "баламен серуендеуге арналған саябақ",
+      "results": [
+        {
+          "poi_id": "dgis:70000001019586873",
+          "name": "Президенттік саябақ",
+          "category": "nature",
+          "score": 1.1724,
+          "warnings": [
+            "Перед посещением уточните часы работы"
+          ]
+        },
+        {
+          "poi_id": "dgis:70000001116767764",
+          "name": "BalaFun",
+          "category": "children",
+          "score": 1.1595,
+          "warnings": []
+        },
+        {
+          "poi_id": "dgis:70000001096929326",
+          "name": "Amiland",
+          "category": "children",
+          "score": 1.159,
+          "warnings": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,310 @@
+{
+  "backend": "tfidf",
+  "cases": 20,
+  "passed": 20,
+  "pass_rate": 1.0,
+  "p95_ms_including_first_query": 52.42,
+  "evaluation_kind": "fixed_product_regression_not_general_quality_benchmark",
+  "results": [
+    {
+      "query": "Байтерек",
+      "passed": true,
+      "latency_ms": 48.68,
+      "ids": [
+        "osm:way:230401645",
+        "dgis:70000001113098365",
+        "dgis:70000001089699783"
+      ],
+      "names": [
+        "Бәйтерек",
+        "Көк Терек",
+        "Ереке, кафе"
+      ]
+    },
+    {
+      "query": "Бәйтерек",
+      "passed": true,
+      "latency_ms": 45.99,
+      "ids": [
+        "osm:way:230401645",
+        "dgis:70000001114761764",
+        "dgis:70000001113098365"
+      ],
+      "names": [
+        "Бәйтерек",
+        "Бәрі бар, кафе фастфуда",
+        "Көк Терек"
+      ]
+    },
+    {
+      "query": "Bayterek",
+      "passed": true,
+      "latency_ms": 44.15,
+      "ids": [
+        "osm:way:230401645",
+        "dgis:70000001083840101",
+        "dgis:70000001096975580"
+      ],
+      "names": [
+        "Бәйтерек",
+        "Baiterek Coffee",
+        "Bereke"
+      ]
+    },
+    {
+      "query": "MEGA Silk Way",
+      "passed": true,
+      "latency_ms": 49.41,
+      "ids": [
+        "osm:way:499328514",
+        "osm:node:1198118007",
+        "osm:node:1198117093"
+      ],
+      "names": [
+        "Mega Silk Way",
+        "Mega",
+        "Mega"
+      ]
+    },
+    {
+      "query": "Qazaq Gourmet",
+      "passed": true,
+      "latency_ms": 47.21,
+      "ids": [
+        "osm:node:12854771763",
+        "osm:node:5913449625",
+        "dgis:70000001100797730"
+      ],
+      "names": [
+        "Qazaq Gourmet",
+        "Street gourmet",
+        "Gastro gourmet"
+      ]
+    },
+    {
+      "query": "Хазрет Султан",
+      "passed": true,
+      "latency_ms": 50.7,
+      "ids": [
+        "osm:way:240860325",
+        "osm:node:10201835817",
+        "osm:node:4931058980"
+      ],
+      "names": [
+        "Әзірет Сұлтан мешіті",
+        "Нур Султан",
+        "Султан Бейбарс"
+      ]
+    },
+    {
+      "query": "Hazret Sultan",
+      "passed": true,
+      "latency_ms": 45.31,
+      "ids": [
+        "osm:way:240860325",
+        "dgis:70000001116960311",
+        "osm:node:4958412863"
+      ],
+      "names": [
+        "Әзірет Сұлтан мешіті",
+        "Sultani, кафе быстрого питания",
+        "Zur Sultan"
+      ]
+    },
+    {
+      "query": "Океанариум Думан",
+      "passed": true,
+      "latency_ms": 51.95,
+      "ids": [
+        "official:ailand_oceanarium",
+        "osm:way:240921034",
+        "osm:node:10168959440"
+      ],
+      "names": [
+        "Океанариум Ailand (Думан)",
+        "Ailand",
+        "Ailand"
+      ]
+    },
+    {
+      "query": "Duman oceanarium",
+      "passed": true,
+      "latency_ms": 49.08,
+      "ids": [
+        "official:ailand_oceanarium",
+        "dgis:70000001103098214",
+        "dgis:70000001103323756"
+      ],
+      "names": [
+        "Океанариум Ailand (Думан)",
+        "Ocean bear",
+        "Ocean bear"
+      ]
+    },
+    {
+      "query": "музей",
+      "passed": true,
+      "latency_ms": 37.97,
+      "ids": [
+        "dgis:70000001112120314",
+        "dgis:70000001018106112",
+        "dgis:70000001077902777"
+      ],
+      "names": [
+        "Музей Казахстанской железной дороги",
+        "Музей им. С. Сейфуллина",
+        "Нур Султан, минералогический музей"
+      ]
+    },
+    {
+      "query": "музеи",
+      "passed": true,
+      "latency_ms": 39.09,
+      "ids": [
+        "dgis:70000001112120314",
+        "dgis:70000001018106112",
+        "dgis:70000001077902777"
+      ],
+      "names": [
+        "Музей Казахстанской железной дороги",
+        "Музей им. С. Сейфуллина",
+        "Нур Султан, минералогический музей"
+      ]
+    },
+    {
+      "query": "мұражай",
+      "passed": true,
+      "latency_ms": 37.88,
+      "ids": [
+        "osm:node:12973428159",
+        "osm:node:13948916190",
+        "osm:node:5627125126"
+      ],
+      "names": [
+        "Artist",
+        "Қазақстан Теміржол тарихы Мұражайы",
+        "Brabus"
+      ]
+    },
+    {
+      "query": "парк",
+      "passed": true,
+      "latency_ms": 38.79,
+      "ids": [
+        "osm:way:243041609",
+        "osm:way:556574299",
+        "osm:way:258173901"
+      ],
+      "names": [
+        "Арай саябағы",
+        "Парк отдыха Момышулы",
+        "Парк Афганской войне"
+      ]
+    },
+    {
+      "query": "парки",
+      "passed": true,
+      "latency_ms": 40.22,
+      "ids": [
+        "osm:way:258173901",
+        "osm:way:243041609",
+        "dgis:70000001101571999"
+      ],
+      "names": [
+        "Парк Афганской войне",
+        "Арай саябағы",
+        "Парковка развлекательного центра Арсенал"
+      ]
+    },
+    {
+      "query": "саябақ",
+      "passed": true,
+      "latency_ms": 40.55,
+      "ids": [
+        "osm:way:243041609",
+        "osm:way:734514013",
+        "osm:relation:15957444"
+      ],
+      "names": [
+        "Арай саябағы",
+        "Сызықтық саябақ",
+        "Астана саябағы"
+      ]
+    },
+    {
+      "query": "Coffee BOOM",
+      "passed": true,
+      "latency_ms": 45.03,
+      "ids": [
+        "osm:node:10170946742",
+        "osm:node:13125556689",
+        "osm:node:12809042306"
+      ],
+      "names": [
+        "Coffee BOOM",
+        "Coffee BOOM",
+        "Coffee BOOM"
+      ]
+    },
+    {
+      "query": "Hardee's",
+      "passed": true,
+      "latency_ms": 43.29,
+      "ids": [
+        "osm:node:11131464680",
+        "osm:node:4935630479",
+        "osm:node:4931058926"
+      ],
+      "names": [
+        "Hardee's",
+        "Hardee's",
+        "Hardee's"
+      ]
+    },
+    {
+      "query": "кафе с детской комнатой",
+      "passed": true,
+      "latency_ms": 61.25,
+      "ids": [
+        "osm:node:13779471479",
+        "dgis:70000001114135100",
+        "dgis:70000001083498801"
+      ],
+      "names": [
+        "SF",
+        "Ми Ген, ресторан корейской кухни",
+        "Мико, кафе"
+      ]
+    },
+    {
+      "query": "кофейня",
+      "passed": true,
+      "latency_ms": 45.19,
+      "ids": [
+        "dgis:70000001111543087",
+        "dgis:70000001114424294",
+        "dgis:70000001084049673"
+      ],
+      "names": [
+        "Кофейня",
+        "Кофейня",
+        "Кофейня"
+      ]
+    },
+    {
+      "query": "баламен серуен",
+      "passed": true,
+      "latency_ms": 48.47,
+      "ids": [
+        "osm:way:230358854",
+        "osm:way:1467797207",
+        "osm:way:1526900307"
+      ],
+      "names": [
+        "Сквер",
+        "NU Park",
+        "Сквер Жагалау"
+      ]
+    }
+  ]
+}

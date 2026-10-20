@@ -1,0 +1,11 @@
+{
+  "records": 103,
+  "unique_source_urls": 63,
+  "fetch_status_counts": {
+    "unsupported_publisher": 2,
+    "source_unavailable": 101
+  },
+  "occurrences_identified": 0,
+  "cancelled_as_reported": 0,
+  "independently_confirmed": 0
+}

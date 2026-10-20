@@ -1,0 +1,37 @@
+{
+  "mega": {
+    "name": "MEGA Silk Way",
+    "lat": 51.089,
+    "lon": 71.407
+  },
+  "airport": {
+    "name": "Astana airport passenger terminal",
+    "lat": 51.0276,
+    "lon": 71.4668
+  },
+  "bayterek": {
+    "name": "Bayterek",
+    "lat": 51.1282882,
+    "lon": 71.4304546
+  },
+  "museum": {
+    "name": "National Museum",
+    "lat": 51.1188,
+    "lon": 71.4692
+  },
+  "opera": {
+    "name": "Astana Opera",
+    "lat": 51.1354512,
+    "lon": 71.410753
+  },
+  "ailand": {
+    "name": "Ailand",
+    "lat": 51.1481229,
+    "lon": 71.4167693
+  },
+  "alem": {
+    "name": "alem.ai",
+    "lat": 51.0904,
+    "lon": 71.4182
+  }
+}

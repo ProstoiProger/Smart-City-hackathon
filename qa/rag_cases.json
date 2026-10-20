@@ -1,0 +1,189 @@
+[
+  {
+    "query": "Байтерек",
+    "expected_any_id": [
+      "osm:way:230401645"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Бәйтерек",
+    "expected_any_id": [
+      "osm:way:230401645"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Bayterek",
+    "expected_any_id": [
+      "osm:way:230401645"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "MEGA Silk Way",
+    "expected_any_id": [
+      "osm:way:499328514"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Qazaq Gourmet",
+    "expected_any_id": [
+      "osm:node:12854771763"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Хазрет Султан",
+    "expected_any_id": [
+      "osm:way:240860325"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Hazret Sultan",
+    "expected_any_id": [
+      "osm:way:240860325"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Океанариум Думан",
+    "expected_any_id": [
+      "official:ailand_oceanarium"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Duman oceanarium",
+    "expected_any_id": [
+      "official:ailand_oceanarium"
+    ],
+    "allowed_categories": [],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "музей",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "culture"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "музеи",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "culture"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "мұражай",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "culture"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "парк",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "nature",
+      "sightseeing"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "парки",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "nature",
+      "sightseeing"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "саябақ",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "nature",
+      "sightseeing"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Coffee BOOM",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "food_drink"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "Hardee's",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "food_drink"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "кафе с детской комнатой",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "food_drink"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "кофейня",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "food_drink"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  },
+  {
+    "query": "баламен серуен",
+    "expected_any_id": [],
+    "allowed_categories": [
+      "nature",
+      "sightseeing",
+      "children",
+      "culture",
+      "entertainment"
+    ],
+    "when": "2026-10-20T12:00:00",
+    "limit": 3
+  }
+]

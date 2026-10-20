@@ -1,0 +1,490 @@
+{
+  "hotel": {
+    "code": "hotel",
+    "label": "Отель"
+  },
+  "mall": {
+    "code": "mall",
+    "label": "Торговый центр"
+  },
+  "community_centre": {
+    "code": "community_centre",
+    "label": "Общественный центр"
+  },
+  "place_of_worship": {
+    "code": "place_of_worship",
+    "label": "Религиозный объект"
+  },
+  "cafe": {
+    "code": "cafe",
+    "label": "Кафе"
+  },
+  "monument": {
+    "code": "monument",
+    "label": "Памятник"
+  },
+  "fast_food": {
+    "code": "fast_food",
+    "label": "Быстрое питание"
+  },
+  "restaurant": {
+    "code": "restaurant",
+    "label": "Ресторан"
+  },
+  "sports_centre": {
+    "code": "sports_centre",
+    "label": "Спортивный центр"
+  },
+  "theatre": {
+    "code": "theatre",
+    "label": "Театр"
+  },
+  "apartment": {
+    "code": "apartment",
+    "label": "Апартаменты"
+  },
+  "cinema": {
+    "code": "cinema",
+    "label": "Кинотеатр"
+  },
+  "library": {
+    "code": "library",
+    "label": "Библиотека"
+  },
+  "hostel": {
+    "code": "hostel",
+    "label": "Хостел"
+  },
+  "stadium": {
+    "code": "stadium",
+    "label": "Стадион"
+  },
+  "bar": {
+    "code": "bar",
+    "label": "Бар"
+  },
+  "confectionery": {
+    "code": "confectionery",
+    "label": "Кондитерская"
+  },
+  "gallery": {
+    "code": "gallery",
+    "label": "Художественная галерея"
+  },
+  "museum": {
+    "code": "museum",
+    "label": "Музей"
+  },
+  "attraction": {
+    "code": "attraction",
+    "label": "Достопримечательность"
+  },
+  "park": {
+    "code": "park",
+    "label": "Парк"
+  },
+  "nightclub": {
+    "code": "nightclub",
+    "label": "Ночной клуб"
+  },
+  "bakery": {
+    "code": "bakery",
+    "label": "Пекарня"
+  },
+  "ice_rink": {
+    "code": "ice_rink",
+    "label": "Каток"
+  },
+  "fitness_station": {
+    "code": "fitness_station",
+    "label": "Площадка для тренировок"
+  },
+  "swimming_pool": {
+    "code": "swimming_pool",
+    "label": "Бассейн"
+  },
+  "sports_hall": {
+    "code": "sports_hall",
+    "label": "Спортивный зал"
+  },
+  "sauna": {
+    "code": "sauna",
+    "label": "Баня и сауна"
+  },
+  "public_bath": {
+    "code": "sauna",
+    "label": "Баня и сауна"
+  },
+  "picnic_site": {
+    "code": "picnic_site",
+    "label": "Место для пикника"
+  },
+  "ice_cream": {
+    "code": "ice_cream",
+    "label": "Мороженое"
+  },
+  "fitness_centre": {
+    "code": "fitness_centre",
+    "label": "Фитнес-клуб"
+  },
+  "pub": {
+    "code": "pub",
+    "label": "Паб"
+  },
+  "memorial": {
+    "code": "memorial",
+    "label": "Мемориал"
+  },
+  "escape_game": {
+    "code": "escape_game",
+    "label": "Квест"
+  },
+  "indoor_play": {
+    "code": "indoor_play",
+    "label": "Детский игровой зал"
+  },
+  "information": {
+    "code": "tourist_information",
+    "label": "Туристическая информация"
+  },
+  "pitch": {
+    "code": "sports_pitch",
+    "label": "Спортплощадка"
+  },
+  "guest_house": {
+    "code": "guest_house",
+    "label": "Гостевой дом"
+  },
+  "playground": {
+    "code": "playground",
+    "label": "Детская площадка"
+  },
+  "yes": {
+    "code": "yes",
+    "label": "Неуточнённый объект"
+  },
+  "track": {
+    "code": "track",
+    "label": "Спортивная дорожка"
+  },
+  "garden": {
+    "code": "garden",
+    "label": "Сад"
+  },
+  "dance": {
+    "code": "dance",
+    "label": "Танцы"
+  },
+  "artwork": {
+    "code": "artwork",
+    "label": "Арт-объект"
+  },
+  "food_court": {
+    "code": "food_court",
+    "label": "Фудкорт"
+  },
+  "arts_centre": {
+    "code": "arts_centre",
+    "label": "Центр искусств"
+  },
+  "motel": {
+    "code": "motel",
+    "label": "Мотель"
+  },
+  "bandstand": {
+    "code": "bandstand",
+    "label": "Эстрада"
+  },
+  "theme_park": {
+    "code": "theme_park",
+    "label": "Парк развлечений"
+  },
+  "beach_resort": {
+    "code": "beach_resort",
+    "label": "Пляжный комплекс"
+  },
+  "chalet": {
+    "code": "chalet",
+    "label": "Гостевой домик"
+  },
+  "childcare": {
+    "code": "childcare",
+    "label": "Присмотр за детьми"
+  },
+  "aquarium": {
+    "code": "aquarium",
+    "label": "Океанариум"
+  },
+  "coffee": {
+    "code": "coffee_shop",
+    "label": "Кофейня"
+  },
+  "resort": {
+    "code": "resort",
+    "label": "Курортный комплекс"
+  },
+  "bench": {
+    "code": "bench",
+    "label": "Скамейка"
+  },
+  "common": {
+    "code": "common",
+    "label": "Общая зелёная территория"
+  },
+  "water_park": {
+    "code": "water_park",
+    "label": "Аквапарк"
+  },
+  "bowling_alley": {
+    "code": "bowling_alley",
+    "label": "Боулинг"
+  },
+  "archaeological_site": {
+    "code": "archaeological_site",
+    "label": "Археологический объект"
+  },
+  "amusement_arcade": {
+    "code": "amusement_arcade",
+    "label": "Игровые автоматы"
+  },
+  "golf_course": {
+    "code": "golf_course",
+    "label": "Поле для гольфа"
+  },
+  "viewpoint": {
+    "code": "viewpoint",
+    "label": "Смотровая площадка"
+  },
+  "caravan_site": {
+    "code": "caravan_site",
+    "label": "Стоянка для автодомов"
+  },
+  "castle": {
+    "code": "castle",
+    "label": "Историческое здание"
+  },
+  "boundary_stone": {
+    "code": "boundary_stone",
+    "label": "Межевой знак"
+  },
+  "bleachers": {
+    "code": "bleachers",
+    "label": "Трибуны"
+  },
+  "dog_park": {
+    "code": "dog_park",
+    "label": "Площадка для собак"
+  },
+  "spirituality": {
+    "code": "spirituality",
+    "label": "Духовное наследие"
+  },
+  "monuments": {
+    "code": "monument",
+    "label": "Памятник"
+  },
+  "leisure": {
+    "code": "leisure",
+    "label": "Досуг"
+  },
+  "sights": {
+    "code": "attraction",
+    "label": "Достопримечательность"
+  },
+  "locations": {
+    "code": "locations",
+    "label": "Городской объект"
+  },
+  "Кафе": {
+    "code": "cafe",
+    "label": "Кафе"
+  },
+  "Кофейни": {
+    "code": "coffee_shop",
+    "label": "Кофейня"
+  },
+  "Быстрое питание": {
+    "code": "fast_food",
+    "label": "Быстрое питание"
+  },
+  "Детские игровые залы": {
+    "code": "indoor_play",
+    "label": "Детский игровой зал"
+  },
+  "Кондитерские изделия": {
+    "code": "confectionery",
+    "label": "Кондитерская"
+  },
+  "Торгово-развлекательные центры": {
+    "code": "mall",
+    "label": "Торговый центр"
+  },
+  "Торговые центры": {
+    "code": "mall",
+    "label": "Торговый центр"
+  },
+  "Бары": {
+    "code": "bar",
+    "label": "Бар"
+  },
+  "Пекарни": {
+    "code": "bakery",
+    "label": "Пекарня"
+  },
+  "Кулинарии": {
+    "code": "cooking_shop",
+    "label": "Кулинария"
+  },
+  "Аттракционы": {
+    "code": "amusement_ride",
+    "label": "Аттракционы"
+  },
+  "Рестораны": {
+    "code": "restaurant",
+    "label": "Ресторан"
+  },
+  "Пиццерии": {
+    "code": "pizzeria",
+    "label": "Пиццерия"
+  },
+  "Туалеты": {
+    "code": "toilets",
+    "label": "Туалет"
+  },
+  "Суши-бары": {
+    "code": "sushi",
+    "label": "Суши-бар"
+  },
+  "Библиотеки": {
+    "code": "library",
+    "label": "Библиотека"
+  },
+  "Кафе-кондитерские": {
+    "code": "cafe_confectionery",
+    "label": "Кафе-кондитерская"
+  },
+  "Столовые": {
+    "code": "canteen",
+    "label": "Столовая"
+  },
+  "Бассейны": {
+    "code": "swimming_pool",
+    "label": "Бассейн"
+  },
+  "Фитнес-клубы": {
+    "code": "fitness_centre",
+    "label": "Фитнес-клуб"
+  },
+  "Стадионы": {
+    "code": "stadium",
+    "label": "Стадион"
+  },
+  "Караоке-залы": {
+    "code": "karaoke",
+    "label": "Караоке"
+  },
+  "Тренажёрные залы": {
+    "code": "fitness_centre",
+    "label": "Фитнес-клуб"
+  },
+  "Парки": {
+    "code": "park",
+    "label": "Парк"
+  },
+  "Коворкинг": {
+    "code": "coworking",
+    "label": "Коворкинг"
+  },
+  "Музеи": {
+    "code": "museum",
+    "label": "Музей"
+  },
+  "Художественные выставки": {
+    "code": "gallery",
+    "label": "Художественная галерея"
+  },
+  "Кинотеатры": {
+    "code": "cinema",
+    "label": "Кинотеатр"
+  },
+  "Центры виртуальной реальности": {
+    "code": "virtual_reality",
+    "label": "Виртуальная реальность"
+  },
+  "Точки кофе": {
+    "code": "coffee_shop",
+    "label": "Кофейня"
+  },
+  "Ночные клубы": {
+    "code": "nightclub",
+    "label": "Ночной клуб"
+  },
+  "Театры": {
+    "code": "theatre",
+    "label": "Театр"
+  },
+  "Детские развлекательные автоматы": {
+    "code": "amusement_arcade",
+    "label": "Игровые автоматы"
+  },
+  "Бильярдные залы": {
+    "code": "billiards",
+    "label": "Бильярд"
+  },
+  "Боулинг": {
+    "code": "bowling_alley",
+    "label": "Боулинг"
+  },
+  "SPA-процедуры": {
+    "code": "spa",
+    "label": "SPA"
+  },
+  "Батутные центры": {
+    "code": "trampoline",
+    "label": "Батутный центр"
+  },
+  "Океанариум": {
+    "code": "aquarium",
+    "label": "Океанариум"
+  },
+  "Кофейные автоматы": {
+    "code": "coffee_vending",
+    "label": "Кофейный автомат"
+  },
+  "Бани и сауны": {
+    "code": "sauna",
+    "label": "Баня и сауна"
+  },
+  "Оранжерея": {
+    "code": "greenhouse",
+    "label": "Оранжерея"
+  },
+  "Паркинги": {
+    "code": "parking",
+    "label": "Паркинг"
+  },
+  "Смотровые площадки": {
+    "code": "viewpoint",
+    "label": "Смотровая площадка"
+  },
+  "Концертные залы": {
+    "code": "concert_hall",
+    "label": "Концертный зал"
+  },
+  "Цирк": {
+    "code": "circus",
+    "label": "Цирк"
+  },
+  "interactive_museum": {
+    "code": "museum",
+    "label": "Музей"
+  },
+  "jungle_exhibition": {
+    "code": "jungle_exhibition",
+    "label": "Экспозиция джунглей"
+  },
+  "airport": {
+    "code": "airport",
+    "label": "Аэропорт"
+  }
+}

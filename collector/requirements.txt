@@ -1,0 +1,6 @@
+requests>=2.32
+pypdf>=5.0
+beautifulsoup4>=4.12
+numpy>=2.0
+scipy>=1.13
+pyarrow>=16

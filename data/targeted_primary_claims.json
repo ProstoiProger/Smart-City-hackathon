@@ -1,0 +1,54 @@
+[
+  {
+    "poi_id": "official:ailand_oceanarium",
+    "kind": "child_entry_ticket",
+    "label": "Океанариум — Детский",
+    "amount": 4400,
+    "currency": "KZT",
+    "source_url": "https://ailand.kz/ru/attractions/ocean-ru/",
+    "collected_at": "2026-10-19T10:00:29.756926+00:00",
+    "snapshot_sha256": "82f3c9dfc277f1aff3aca45603458f4eb1a4842e3c5a042e2b4cbb0f348f81e6",
+    "scope": "named_subvenue_product_card",
+    "age_bounds": null,
+    "note": "Standard is the operator label; adult age eligibility is not inferred."
+  },
+  {
+    "poi_id": "official:ailand_oceanarium",
+    "kind": "standard_entry_ticket",
+    "label": "Океанариум — Стандарт",
+    "amount": 5600,
+    "currency": "KZT",
+    "source_url": "https://ailand.kz/ru/attractions/ocean-ru/",
+    "collected_at": "2026-10-19T10:00:29.756926+00:00",
+    "snapshot_sha256": "82f3c9dfc277f1aff3aca45603458f4eb1a4842e3c5a042e2b4cbb0f348f81e6",
+    "scope": "named_subvenue_product_card",
+    "age_bounds": null,
+    "note": "Standard is the operator label; adult age eligibility is not inferred."
+  },
+  {
+    "poi_id": "official:ailand_jungle",
+    "kind": "child_entry_ticket",
+    "label": "Джунгли — Детский",
+    "amount": 4900,
+    "currency": "KZT",
+    "source_url": "https://ailand.kz/ru/attractions/jungle-ru/",
+    "collected_at": "2026-10-19T10:03:12.882081+00:00",
+    "snapshot_sha256": "29d3021c20be981131b309272b13572de2c3150127ac579232011a03f8dea7bb",
+    "scope": "named_subvenue_product_card",
+    "age_bounds": null,
+    "note": "Standard is the operator label; adult age eligibility is not inferred."
+  },
+  {
+    "poi_id": "official:ailand_jungle",
+    "kind": "standard_entry_ticket",
+    "label": "Джунгли — Стандарт",
+    "amount": 5400,
+    "currency": "KZT",
+    "source_url": "https://ailand.kz/ru/attractions/jungle-ru/",
+    "collected_at": "2026-10-19T10:03:12.882081+00:00",
+    "snapshot_sha256": "29d3021c20be981131b309272b13572de2c3150127ac579232011a03f8dea7bb",
+    "scope": "named_subvenue_product_card",
+    "age_bounds": null,
+    "note": "Standard is the operator label; adult age eligibility is not inferred."
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-10-19T15:19:29.323667+00:00",
+  "objects_processed": 7570,
+  "objects_with_branch_price_or_budget": 2707,
+  "objects_linked_to_price_documents": 61,
+  "objects_with_published_constraints": 1455,
+  "objects_linked_to_policy_documents": 30,
+  "explicit_provider_closure_flags": 185,
+  "provider_ids_refreshed": 4717,
+  "shared_source_price_items": 612,
+  "shared_source_policy_clauses": 99,
+  "source_documents": 176,
+  "all_prices_all_rules_all_statuses_complete": false,
+  "limitations": [
+    "Not all places publish prices, a visitor policy or an operational-status claim.",
+    "A directory response without a closure flag does not mean physically open.",
+    "Shared chain price documents have not been verified for each branch.",
+    "Adult/child entrance fees are not substituted with restaurant average checks."
+  ]
+}
