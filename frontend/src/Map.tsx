@@ -34,7 +34,7 @@ export default function CityMap({
   onSelect: (p: Poi) => void;
   onOrigin: (p: [number, number]) => void;
   onTileError: () => void;
-  labels: { aria: string; start: string; startPin: string };
+  labels: { aria: string; start: string; startName: string };
   theme: string;
 }) {
   const el = useRef<HTMLDivElement>(null),
@@ -130,17 +130,27 @@ export default function CityMap({
       start.current.remove();
       start.current = null;
     }
-    if (origin && map.current)
+    if (origin && map.current) {
+      // A large teardrop pin with a pulse and a name chip: the start must stand out
+      // from clusters and category dots, whether it is a landmark or a picked point.
+      const name = document.createElement("span");
+      name.textContent = labels.startName;
       start.current = L.marker(origin, {
         icon: L.divIcon({
           className: "start-wrap",
-          html: `<span class="start-pin">${labels.startPin}</span>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
+          html:
+            `<span class="start-pulse"></span>` +
+            `<span class="start-pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></svg></span>` +
+            `<span class="start-chip"><b>${labels.start}</b>${name.innerHTML}</span>`,
+          iconSize: [40, 50],
+          iconAnchor: [20, 48],
         }),
-        title: labels.start,
+        title: `${labels.start}: ${labels.startName}`,
+        zIndexOffset: 1000,
+        keyboard: false,
       }).addTo(map.current);
-  }, [origin, labels.start, labels.startPin]);
+    }
+  }, [origin, labels.start, labels.startName]);
   useEffect(() => {
     const layer = paths.current;
     layer?.clearLayers();

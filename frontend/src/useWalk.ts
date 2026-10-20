@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   request,
   type ChatResponse,
-  type EventCheck,
   type EventRecord,
   type Meta,
   type Plan,
@@ -52,8 +51,6 @@ export function useWalk() {
   const [plan, setPlan] = useState<Plan>();
   const [panel, setPanel] = useState<Panel>("map");
   const [afisha, setAfisha] = useState<EventRecord[] | null>(null);
-  const [eventChecks, setEventChecks] = useState<Record<string, EventCheck>>({});
-  const [checkingEvent, setCheckingEvent] = useState<string>();
   const serial = useRef(0);
   const searchAbort = useRef<AbortController | null>(null);
 
@@ -247,18 +244,6 @@ export function useWalk() {
     }
   }
 
-  async function recheckEvent(event: EventRecord) {
-    setCheckingEvent(event.event_id);
-    try {
-      const data = await request<EventCheck>(`events/${encodeURIComponent(event.event_id)}/refresh`, {});
-      setEventChecks((all) => ({ ...all, [event.event_id]: data }));
-    } catch (e) {
-      setError(message(e, "err.eventCheck"));
-    } finally {
-      setCheckingEvent(undefined);
-    }
-  }
-
   function dismiss() {
     setError("");
     setNotice("");
@@ -274,7 +259,7 @@ export function useWalk() {
     },
     chat: { messages, miniRoute, setMiniRoute, ask },
     compareState: { compareIds, comparison, setComparison, toggleCompare, clearCompare, compare },
-    afishaState: { afisha, setAfisha, eventChecks, checkingEvent, openAfisha, recheckEvent },
+    afishaState: { afisha, setAfisha, openAfisha },
     search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };
 }

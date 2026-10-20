@@ -1,4 +1,4 @@
-import { safeUrl, type Poi } from "../api";
+import { safeUrl, type EventRecord, type Poi } from "../api";
 import { hoursLabel, money, yesNo } from "../lib/format";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
@@ -64,10 +64,22 @@ export function ComparePanel({ walk }: { walk: Walk }) {
   );
 }
 
+/** Ticket page: Ticketon when the listing has one, otherwise the publisher page. */
+function ticketLink(event: EventRecord): { href?: string; ticketon: boolean } {
+  const urls = [event.registration_url, event.source_url].map((u) => safeUrl(u)).filter(Boolean) as string[];
+  const ticketon = urls.find((u) => new URL(u).hostname.endsWith("ticketon.kz"));
+  return { href: ticketon || urls[0], ticketon: !!ticketon };
+}
+
+/** "08.10.2026" from an ISO date, with the time when the listing has one. */
+function eventDate(iso: string) {
+  const date = `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+  return iso.length > 10 && iso.slice(11, 16) !== "00:00" ? `${date}, ${iso.slice(11, 16)}` : date;
+}
+
 export function AfishaPanel({ walk }: { walk: Walk }) {
   const t = useT();
-  const { lang } = usePrefs();
-  const { afisha, setAfisha, eventChecks, checkingEvent, recheckEvent } = walk.afishaState;
+  const { afisha, setAfisha } = walk.afishaState;
   if (afisha === null) return null;
   return (
     <section className="compare-panel afisha" aria-label={t("afisha.region")}>
@@ -80,37 +92,22 @@ export function AfishaPanel({ walk }: { walk: Walk }) {
       <p>{t("afisha.note")}</p>
       {!afisha.length && <p>{t("afisha.empty")}</p>}
       {afisha.slice(0, 30).map((event) => {
-        const check = eventChecks[event.event_id];
+        const link = ticketLink(event);
         return (
           <article className="event-row" key={event.event_id}>
             <h3>{event.event_name}</h3>
             <p>
-              {event.event_start}
-              {event.event_end && event.event_end !== event.event_start ? " — " + event.event_end : ""}
+              {eventDate(event.event_start)}
+              {event.event_end && event.event_end !== event.event_start ? " — " + eventDate(event.event_end) : ""}
               {event.event_location ? " · " + event.event_location : ""}
             </p>
-            <div className="detail-actions">
-              <a
-                className="icon-button"
-                href={safeUrl(event.registration_url) || safeUrl(event.source_url)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("detail.source")}
-                <Icon name="external-link" />
-              </a>
-              <button disabled={!!checkingEvent} onClick={() => recheckEvent(event)}>
-                {checkingEvent === event.event_id ? t("afisha.checking") : t("afisha.check")}
-              </button>
-            </div>
-            {check && (
-              <p className={check.cancelled_as_reported ? "warning" : ""}>
-                {check.cancelled_as_reported ? t("afisha.cancelled") + " " : ""}
-                {check.note} ·{" "}
-                {t("afisha.checkedAt", {
-                  at: new Date(check.publisher_rechecked_at).toLocaleString(locale(lang), { timeZone: "Asia/Almaty" }),
-                })}
-              </p>
+            {link.href && (
+              <div className="detail-actions">
+                <a className="icon-button" href={link.href} target="_blank" rel="noreferrer">
+                  {link.ticketon ? t("afisha.ticketon") : t("detail.source")}
+                  <Icon name="external-link" />
+                </a>
+              </div>
             )}
           </article>
         );

@@ -23,7 +23,7 @@ export function MapPanel({ walk }: { walk: Walk }) {
         onSelect={(p) => walk.selectPlace(p, false)}
         onOrigin={walk.pickOrigin}
         onTileError={() => setTileError(true)}
-        labels={{ aria: t("map.aria"), start: t("map.start"), startPin: t("map.startPin") }}
+        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originLabel }}
         theme={theme}
       />
       <div className="map-top">

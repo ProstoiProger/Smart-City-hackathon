@@ -25,7 +25,6 @@ from .query import (
     without_tokens,
 )
 from .weather import current_weather
-from .events import recheck
 from .photos import main_photo
 
 city = None
@@ -200,23 +199,6 @@ def events():
         "live_verified": False,
         "note": "Публикации источников, не проверка фактического проведения или отмены.",
     }
-
-
-@app.post("/api/events/{event_id}/refresh")
-def refresh_event(event_id: str):
-    import json
-
-    original = next(
-        (
-            json.loads(l)
-            for l in (DATA / "events.jsonl").open(encoding="utf-8")
-            if json.loads(l).get("event_id") == event_id
-        ),
-        None,
-    )
-    if original is None:
-        raise HTTPException(404, "Событие не найдено")
-    return recheck(original)
 
 
 @app.post("/api/search")

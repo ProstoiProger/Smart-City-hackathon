@@ -116,14 +116,6 @@ export interface EventRecord {
   registration_url?: string;
   source_url: string;
 }
-export interface EventCheck {
-  event_id: string;
-  publisher_rechecked_at: string;
-  publisher_status?: string;
-  source_page_available: boolean;
-  cancelled_as_reported?: boolean;
-  note: string;
-}
 export interface Meta {
   pois: number;
   search_backend: string;

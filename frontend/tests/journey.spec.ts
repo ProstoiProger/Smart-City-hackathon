@@ -7,7 +7,7 @@ async function offlineChat(page: import("@playwright/test").Page) {
   );
 }
 
-test("explicit subvenue tickets and event publisher checks", async ({
+test("explicit subvenue tickets and afisha ticket links", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -35,10 +35,11 @@ test("explicit subvenue tickets and event publisher checks", async ({
     page.getByRole("region", { name: "Афиша Астаны" }),
   ).toBeVisible();
   await expect(page.locator(".event-row").first()).toBeVisible();
-  await page.locator(".event-row").first().getByRole("button").click();
-  await expect(page.locator(".event-row").first()).toContainText("Проверка:", {
-    timeout: 45000,
-  });
+  // No publisher re-check button: listings link to their Ticketon page (or the publisher).
+  await expect(page.locator(".event-row").getByRole("button")).toHaveCount(0);
+  await expect(
+    page.locator(".event-row").getByRole("link", { name: "Билеты на Ticketon" }).first(),
+  ).toHaveAttribute("href", /ticketon\.kz/);
   await page
     .getByRole("button", { name: "Закрыть афишу", exact: true })
     .click();
