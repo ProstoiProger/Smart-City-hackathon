@@ -1,6 +1,5 @@
 # Normalize text to LF in the repository; Windows checkouts convert as configured.
 * text=auto eol=lf
-*.ps1 text eol=crlf
 
 # Binary data and assets: never diff or convert line endings.
 *.npy binary

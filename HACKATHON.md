@@ -38,10 +38,12 @@ flowchart LR
 
 ## Перед выступлением
 
+- Запустите приложение заранее: `docker compose up -d --build`, дождитесь `healthy` в `docker compose ps`.
+
 - Проверьте доступ к Gemini API из сети площадки. Некоторые сети сбрасывают соединение с `generativelanguage.googleapis.com`, хотя `google.com` открывается:
 
-  ```powershell
-  curl.exe -sS -o NUL -w "%{http_code}" https://generativelanguage.googleapis.com/v1beta/models
+  ```bash
+  curl -sS -o /dev/null -w "%{http_code}\n" https://generativelanguage.googleapis.com/v1beta/models
   ```
 
   `403` — доступ есть (запрос без ключа). `Connection was reset` — домен блокируется. Держите запасной канал: раздачу с телефона.
