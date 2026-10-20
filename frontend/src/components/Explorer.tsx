@@ -111,6 +111,15 @@ function Filters({ walk }: { walk: Walk }) {
           />
           <small>{t("filters.flightHint")}</small>
         </details>
+        <label htmlFor="group-size">{t("filters.group")}</label>
+        <select id="group-size" value={f.groupSize} onChange={(e) => f.setGroupSize(Number(e.target.value))}>
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <option key={n} value={n}>
+              {t("filters.groupOption", { n })}
+            </option>
+          ))}
+        </select>
+        <small>{t("filters.groupHint")}</small>
         <label htmlFor="when">{t("filters.when")}</label>
         <input id="when" type="datetime-local" value={f.when} onChange={(e) => f.setWhen(e.target.value)} />
         <label className="check">

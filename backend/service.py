@@ -156,6 +156,32 @@ REVIEW_TERMS = {
     "accessibility": "пандус коляска лифт по отзывам",
     "view": "вид панорама по отзывам",
 }
+# Published 2GIS venue attributes that indicate seating for a company.
+GROUP_FEATURES = ("VIP-зал", "Кабинки", "Проведение банкетов", "Корпоративные обеды")
+
+
+def group_features(p):
+    attrs = set(p.get("semantic_attributes") or [])
+    return [f for f in GROUP_FEATURES if f in attrs]
+
+
+def group_cost(p, size):
+    """Rough total for the group from a published per-person price; None when unknown."""
+    for key, basis in (
+        ("adult_ticket_price", "adult_ticket"),
+        ("standard_ticket_price", "standard_ticket"),
+    ):
+        price = p.get(key) or {}
+        if price.get("amount") is not None:
+            return {"size": size, "amount": price["amount"] * size, "currency": price.get("currency") or "KZT", "basis": basis}
+    budget = p.get("estimated_visit_budget") or {}
+    if budget.get("amount_min") is not None:
+        return {"size": size, "amount": budget["amount_min"] * size, "currency": budget.get("currency") or "KZT", "basis": "average_check"}
+    if p.get("free_entry") is True:
+        return {"size": size, "amount": 0, "currency": "KZT", "basis": "free_entry"}
+    return None
+
+
 REVIEW_BOOST = {"supported": 0.3, "single_mention": 0.08, "mixed": 0.0, "contradicted": -0.35}
 
 
@@ -212,6 +238,12 @@ class City:
         )
         self.landmarks = json.loads(
             (DATA / "landmarks.json").read_text(encoding="utf-8")
+        )
+        events_path = DATA / "events.jsonl"
+        self.events = (
+            [json.loads(l) for l in events_path.open(encoding="utf-8")]
+            if events_path.exists()
+            else []
         )
 
     def public(self, p, when=None, stay=0):
@@ -274,8 +306,10 @@ class City:
         strict_amenities=False,
         distinct_names=False,
         max_snap_m=MAX_SNAP_M,
+        group_size=None,
     ):
         scores = self.index.scores(q)
+        group = group_size if group_size and group_size >= 3 else None
         query = q.casefold()
         preferred = set()
         for pattern, cats in ALIASES:
@@ -379,6 +413,13 @@ class City:
                 score += 0.3
             if not q and p.get("category") in ("sightseeing", "nature", "culture"):
                 score += 0.15
+            if group:
+                # Companies of 3+: venues that publish group seating rank higher;
+                # single-person quiet spaces (libraries, coworking) rank lower.
+                if group_features(p):
+                    score += 0.15
+                if p.get("category") == "quiet_spaces":
+                    score -= 0.2
             results.append((score, p))
         results.sort(key=lambda t: t[0], reverse=True)
         out = []
@@ -471,6 +512,17 @@ class City:
                     )
                 elif a in strict_attrs:
                     obj["warnings"].append(f"{label.capitalize()}: нет данных")
+            if group:
+                features = group_features(p)
+                if features:
+                    obj["reasons"].append("Для компании: " + ", ".join(features).lower())
+                if p.get("category") == "food_drink" and group >= 4:
+                    obj["warnings"].append(
+                        f"Для компании из {group} человек лучше заранее забронировать стол: вместимость в данных не указана."
+                    )
+                cost = group_cost(p, group)
+                if cost:
+                    obj["group_cost"] = cost
             if need_quiet and p.get("quiet_place") is True and not confirmed_signal(
                 p, "quiet_place"
             ) and obj["evidence"].get("quiet") == "unknown":
@@ -498,6 +550,116 @@ class City:
             seen.update([group, name] if name else [group])
             diverse.append(item)
         return diverse[:limit]
+
+    def venue_candidate(self, pid, origin, minutes, when, no_steps=False, max_snap_m=MAX_SNAP_M):
+        """An event venue as a chat candidate, with the same route/hours fields as search results."""
+        p = self.byid.get(pid)
+        if not p or closure(p):
+            return None
+        state = self.router.paths(origin, no_steps, max_minutes=minutes, max_snap_m=max_snap_m) if origin else None
+        route = self.router.route(origin, (p["latitude"], p["longitude"]), no_steps, state) if state is not None else None
+        if origin and route is None:
+            return None
+        travel = route["duration_min"] if route else 0
+        stay = p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(p.get("category"), 30)
+        obj = self.public(p, parse_when(when) + timedelta(minutes=travel), stay)
+        obj.update(
+            route=route,
+            total_duration_min=round(travel + stay, 1),
+            search_score=1.0,
+            reasons=["Площадка опубликованного события"],
+            warnings=(
+                [f"С дорогой и посещением ~{round(travel + stay)} мин: больше бюджета прогулки ({minutes} мин)."]
+                if travel + stay > minutes
+                else []
+            ),
+            evidence={},
+        )
+        return obj
+
+    def events_nearby(
+        self,
+        origin,
+        when=None,
+        minutes=90,
+        no_steps=False,
+        max_snap_m=MAX_SNAP_M,
+        limit=3,
+        reachable_only=True,
+    ):
+        """Published events the walker can catch during this walk.
+
+        Timed events must start inside the walk window and be reachable on foot
+        before they start; day-range listings (exhibitions) count while they run.
+        Listings are announcements, not confirmations: cancelled/past ones are skipped.
+        """
+        start = parse_when(when)
+        end = start + timedelta(minutes=minutes)
+        state = (
+            self.router.paths(origin, no_steps, max_minutes=minutes, max_snap_m=max_snap_m)
+            if origin
+            else None
+        )
+        found = []
+        for e in self.events:
+            status = str(e.get("event_status") or "")
+            if status.endswith(("EventCancelled", "EventPostponed")) or e.get("listing_period_status") == "past":
+                continue
+            try:
+                ev_start = parse_when(e["event_start"])
+                ev_end = parse_when(e["event_end"]) if e.get("event_end") else None
+            except (KeyError, TypeError, ValueError):
+                continue
+            timed = e.get("date_precision") == "datetime"
+            if timed:
+                if not start <= ev_start <= end:
+                    continue
+            else:
+                # Day-precision ranges (exhibitions): open on the walk date.
+                last = (ev_end or ev_start).date()
+                if not ev_start.date() <= start.date() <= last:
+                    continue
+            coords = e.get("event_coordinates") or {}
+            venue = self.byid.get(e.get("venue_poi_id") or "")
+            point = (
+                (coords["latitude"], coords["longitude"])
+                if coords.get("latitude") is not None
+                else (venue["latitude"], venue["longitude"]) if venue else None
+            )
+            route = (
+                self.router.route(origin, point, no_steps, state)
+                if point and state is not None
+                else None
+            )
+            walk = route["duration_min"] if route else None
+            if timed and walk is not None and start + timedelta(minutes=walk) > ev_start:
+                continue  # cannot arrive before it begins
+            if reachable_only and origin and walk is None:
+                continue
+            price = e.get("event_price") or {}
+            if str(price.get("availability") or "").endswith("SoldOut"):
+                continue  # the publisher reports no tickets left
+            found.append(
+                {
+                    "event_id": e["event_id"],
+                    "name": e.get("event_name"),
+                    "start": e.get("event_start"),
+                    "end": e.get("event_end"),
+                    "timed": timed,
+                    "category": e.get("event_category"),
+                    "venue": e.get("event_location") or (venue or {}).get("display_name"),
+                    "venue_poi_id": venue["poi_id"] if venue else None,
+                    "walk_min": round(walk) if walk is not None else None,
+                    "price_from": price.get("amount_min"),
+                    "currency": price.get("currency"),
+                    "age_group": e.get("event_age_group"),
+                    "source_url": e.get("registration_url") or e.get("source_url"),
+                    "source_name": e.get("source_name"),
+                    "note": "Опубликованный анонс: проведение и наличие билетов не подтверждены.",
+                }
+            )
+        found.sort(key=lambda x: (x["walk_min"] is None, x["start"] or "", x["walk_min"] or 0))
+        return found[:limit]
 
     def mini_route(
         self,

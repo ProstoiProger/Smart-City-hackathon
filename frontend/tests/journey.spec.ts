@@ -165,3 +165,24 @@ test("chat builds a timed mini-route of up to 3 stops and draws it", async ({ pa
   await card.getByRole("button", { name: "Показать маршрут на карте" }).click();
   await expect(page.locator(".itinerary li").first()).toBeVisible();
 });
+
+test("answers show timing, nearby events and the company budget", async ({ page }) => {
+  await offlineChat(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await page.getByText("Условия прогулки", { exact: true }).click();
+  await page.locator("#when").fill("2026-10-24T15:30");
+  await page.getByLabel("Куда хотите сходить?").fill("Идём в Столичный цирк");
+  await page.getByRole("button", { name: "Отправить", exact: true }).click();
+  const answer = page.locator(".message.assistant").last();
+  await expect(answer.locator(".chat-events")).toContainText("События во время прогулки");
+  await expect(answer.locator(".chat-events")).toContainText("24.10, 16:00");
+  await expect(answer.locator(".route-meta").first()).toContainText(/мин на месте/);
+
+  await page.locator("#group-size").selectOption("5");
+  await page.getByLabel("Куда хотите сходить?").fill("Поужинать возле Байтерека");
+  await page.getByRole("button", { name: "Отправить", exact: true }).click();
+  const dinner = page.locator(".message.assistant").last();
+  await expect(dinner).toContainText("Подбор для компании из 5");
+  await expect(dinner.locator(".group-cost").first()).toContainText(/На 5 чел\. ≈/);
+});

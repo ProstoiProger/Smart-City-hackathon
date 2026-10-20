@@ -1,4 +1,4 @@
-import type { Poi, Price, PriceEntry } from "../api";
+import type { EventMatch, Poi, Price, PriceEntry } from "../api";
 import { has, type T } from "./i18n";
 
 function amount(value: number, currency: string | undefined, loc: string) {
@@ -53,4 +53,28 @@ export function hoursLabel(p: Pick<Poi, "hours_status">, t: T): string {
 
 export function yesNo(value: boolean | undefined | null, t: T): string {
   return value === true ? t("common.yes") : value === false ? t("common.no") : t("common.unknown");
+}
+
+function day(iso: string) {
+  return `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
+}
+
+/** "23.10, 19:00" for timed events, "до 31.10" for running exhibitions. */
+export function eventWhen(e: EventMatch, t: T): string {
+  if (e.timed) return `${day(e.start)}, ${e.start.slice(11, 16)}`;
+  return t("events.until", { date: day(e.end || e.start) });
+}
+
+export function groupCost(p: Poi, t: T, loc: string): string | null {
+  const c = p.group_cost;
+  if (!c) return null;
+  const amount = c.amount === 0 ? "0" : `${c.amount.toLocaleString(loc)} ${c.currency === "KZT" ? "₸" : c.currency}`;
+  return t("group.cost", { n: c.size, amount, basis: t("group.basis." + c.basis) });
+}
+
+/** Walking and visit time for a chat recommendation. */
+export function itemTiming(p: Poi, t: T): string {
+  return p.route
+    ? t("chat.itemMeta", { walk: Math.ceil(p.route.duration_min), visit: p.suggested_visit_duration_min })
+    : t("chat.itemVisit", { visit: p.suggested_visit_duration_min });
 }

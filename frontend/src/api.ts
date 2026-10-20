@@ -48,6 +48,8 @@ export interface Poi {
   estimated_visit_budget?: Price;
   suggested_visit_duration_min: number;
   arrival_offset_min?: number;
+  events?: EventMatch[];
+  group_cost?: { size: number; amount: number; currency: string; basis: string };
   total_duration_min?: number;
   route?: Route;
   reasons?: string[];
@@ -150,6 +152,23 @@ export interface ChatResponse {
   origin?: { latitude: number; longitude: number; label?: string };
   minutes: number;
   mini_route?: Plan | null;
+  events?: EventMatch[];
+  group?: { size: number; from_text: boolean } | null;
+}
+export interface EventMatch {
+  event_id: string;
+  name: string;
+  start: string;
+  end?: string;
+  timed: boolean;
+  category?: string;
+  venue?: string;
+  venue_poi_id?: string | null;
+  walk_min?: number | null;
+  price_from?: number | null;
+  currency?: string | null;
+  age_group?: string | null;
+  source_url?: string;
 }
 export interface Plan {
   kind?: "mini_route";

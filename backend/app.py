@@ -19,6 +19,36 @@ ROUTE_INTENT = re.compile(
     r"маршрут|прогул|погуля|обойти|несколько мест|серуен|бағыт|\broute\b|\bwalk|itinerary",
     re.I,
 )
+EVENT_INTENT = re.compile(
+    r"концерт|спектакл|театр|выставк|\bшоу\b|мероприят|событи|афиш|фестивал|стендап|stand-?up|цирк|опер|балет|"
+    r"іс-шара|көрме|\bevent|concert|exhibition|\bshow\b|theat",
+    re.I,
+)
+GROUP_WORDS = {
+    "вдвоём": 2, "вдвоем": 2, "втроём": 3, "втроем": 3, "вчетвером": 4, "впятером": 5, "вшестером": 6,
+    "двое": 2, "трое": 3, "четверо": 4, "пятеро": 5, "шестеро": 6,
+    "екеуміз": 2, "үшеуміз": 3, "төртеуміз": 4, "бесеуміз": 5,
+}
+GROUP_NUMBER = re.compile(
+    r"(?:нас|компани[яи]\s+из|групп[аы]\s+из|группой\s+из|we\s+are|group\s+of|party\s+of)\s+(\d{1,2})"
+    r"|(\d{1,2})\s*(?:человек|чел\b|людей|people|persons|адам)",
+    re.I,
+)
+GROUP_VAGUE = re.compile(r"с друзьями|компани|группой|достармен|with friends|\bfriends\b", re.I)
+
+
+def detect_group(text):
+    """Group size from the request text: explicit number, Russian/Kazakh collective words, or None."""
+    m = GROUP_NUMBER.search(text)
+    if m:
+        return max(1, min(10, int(m.group(1) or m.group(2))))
+    lowered = text.casefold()
+    words = set(re.findall(r"\w+", lowered))
+    for word, size in GROUP_WORDS.items():
+        if word in words:
+            return size
+    # "with friends" without a number: plan for a typical company of 4.
+    return 4 if GROUP_VAGUE.search(text) else None
 
 
 @asynccontextmanager
@@ -61,6 +91,8 @@ class SearchRequest(Context):
     open_only: bool = False
     strict_amenities: bool = False
     limit: int = Field(30, ge=1, le=100)
+    # Company size; None lets the chat read it from the text ("нас 4", "втроём").
+    group_size: int | None = Field(None, ge=1, le=10)
 
 
 class ChatRequest(SearchRequest):
@@ -163,6 +195,7 @@ def search(req: SearchRequest):
         req.limit,
         req.strict_amenities,
         max_snap_m=req.max_snap_m,
+        group_size=req.group_size,
     )
     warnings = []
     if (
@@ -308,6 +341,8 @@ def chat(req: ChatRequest):
         if req.mini_route is not None
         else bool(ROUTE_INTENT.search(req.query))
     )
+    group = req.group_size if req.group_size and req.group_size > 1 else detect_group(req.query)
+    event_intent = bool(EVENT_INTENT.search(req.query))
     pool = city.search(
         effective_query,
         req.category,
@@ -320,7 +355,26 @@ def chat(req: ChatRequest):
         req.strict_amenities,
         distinct_names=True,
         max_snap_m=req.max_snap_m,
+        group_size=group,
     )
+    # Published events the walk can catch: shown when asked for, or when one is a short walk away.
+    events = [
+        e
+        for e in city.events_nearby(
+            origin, req.when, minutes, req.no_steps, req.max_snap_m,
+            limit=3, reachable_only=bool(origin),
+        )
+        if event_intent or (e["walk_min"] is not None and e["walk_min"] <= 20)
+    ]
+    if event_intent:
+        # Venues of matching events lead the candidates so the answer can point to them.
+        known = {p["poi_id"] for p in pool}
+        venues = [
+            city.venue_candidate(e["venue_poi_id"], origin, minutes, req.when, req.no_steps, req.max_snap_m)
+            for e in events
+            if e["venue_poi_id"] and e["venue_poi_id"] not in known
+        ]
+        pool = [v for v in venues if v] + pool
     route = (
         city.mini_route(pool, origin, minutes, req.when, req.no_steps, req.max_snap_m)
         if route_mode and origin
@@ -343,6 +397,13 @@ def chat(req: ChatRequest):
         "weather": weather,
         "flight_context": flight_context,
     }
+    if group:
+        context["group_size"] = group
+    if events:
+        context["events"] = [
+            {k: e[k] for k in ("name", "start", "end", "venue", "venue_poi_id", "walk_min", "price_from", "age_group")}
+            for e in events
+        ]
     if route:
         context["mini_route"] = [
             {
@@ -367,6 +428,7 @@ def chat(req: ChatRequest):
     selected = []
     for pick in picks:
         item = dict(byid[pick["poi_id"]])
+        item["events"] = [e for e in events if e["venue_poi_id"] == item["poi_id"]]
         item["why"] = pick["why"]
         item["what_to_do"] = pick["what_to_do"]
         item["explanation"] = {
@@ -394,8 +456,14 @@ def chat(req: ChatRequest):
             f"Мини-маршрут: {len(route['stops'])} места за ~{round(route['total_duration_min'])} мин "
             f"из {minutes} (пешком ~{round(route['walk_duration_min'])} мин). " + text
         )
-    elif route_mode and origin and selected:
+    if group:
+        text = f"Подбор для компании из {group} человек. " + text
+    if route_mode and origin and selected and not route:
         text += " Несколько мест вместе не укладываются в это время — показаны отдельные варианты."
+    if events:
+        text += " Рядом есть опубликованные события на это время — см. блок «События»."
+    elif event_intent:
+        text += " Подходящих по времени и пешей доступности событий в афише не найдено."
     if flight_context:
         text = (
             f"На прогулку остаётся {minutes} мин после заданных вами резервов на трансфер и аэропорт. "
@@ -463,8 +531,33 @@ def chat(req: ChatRequest):
             ]
             if route
             else []
+        )
+        + (
+            [
+                {
+                    "action": "Компания",
+                    "result": (
+                        f"{group} человек: выше места с VIP-залом, кабинками или банкетами по данным 2ГИС; "
+                        "бюджет на всех по опубликованной цене за одного"
+                    ),
+                }
+            ]
+            if group
+            else []
+        )
+        + (
+            [
+                {
+                    "action": "Афиша",
+                    "result": f"{len(events)} опубликованных событий во время прогулки и в пешей доступности; проведение не подтверждено",
+                }
+            ]
+            if events
+            else []
         ),
         "mini_route": route,
+        "events": events,
+        "group": {"size": group, "from_text": not (req.group_size and req.group_size > 1)} if group else None,
         "minutes": minutes,
         "generated_facts": False,
         "generated_text": generated,

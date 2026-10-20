@@ -37,6 +37,7 @@ export function useWalk() {
   const [noSteps, setNoSteps] = useState(false);
   const [snapRadius, setSnapRadius] = useState(150);
   const [strict, setStrict] = useState(false);
+  const [groupSize, setGroupSize] = useState(1);
   const [airportTransfer, setAirportTransfer] = useState("");
   const [airportReserve, setAirportReserve] = useState("");
   const [provider, setProvider] = useState<Provider>("offline");
@@ -65,6 +66,8 @@ export function useWalk() {
     when: when || null,
     no_steps: noSteps,
     max_snap_m: snapRadius,
+    // 1 = not set: the chat can still read "нас 4" from the text.
+    group_size: groupSize > 1 ? groupSize : null,
     airport_transfer_min: airportTransfer === "" ? null : Number(airportTransfer),
     airport_reserve_min: airportReserve === "" ? null : Number(airportReserve),
   });
@@ -259,7 +262,7 @@ export function useWalk() {
     filters: {
       query, setQuery, category, setCategory, minutes, setMinutes, when, setWhen,
       origin, originLabel, setLandmark, picking, setPicking, locate,
-      openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict,
+      openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict, groupSize, setGroupSize,
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
     chat: { messages, miniRoute, setMiniRoute, ask },

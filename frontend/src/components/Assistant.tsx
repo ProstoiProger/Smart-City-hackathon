@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { safeUrl } from "../api";
+import { eventWhen, groupCost, itemTiming } from "../lib/format";
 import { Icon } from "../lib/Icon";
-import { useT } from "../lib/i18n";
+import { locale, useT } from "../lib/i18n";
+import { usePrefs } from "../lib/prefs";
 import type { Walk } from "../useWalk";
 import { Explanation } from "./Explanation";
 
@@ -8,6 +11,7 @@ const SUGGESTIONS = ["chat.s1", "chat.s2", "chat.s3"];
 
 export function Assistant({ walk }: { walk: Walk }) {
   const t = useT();
+  const { lang } = usePrefs();
   const { messages, miniRoute, setMiniRoute, ask } = walk.chat;
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -96,13 +100,50 @@ export function Assistant({ walk }: { walk: Walk }) {
                     })}
                   </span>
                 )}
+                {!m.data?.mini_route && <span className="route-meta">{itemTiming(p, t)}</span>}
                 <strong>{p.display_name}</strong>
                 <Explanation p={p} />
+                {p.events?.map((e) => (
+                  <span key={e.event_id} className="event-meta">
+                    <Icon name="calendar-clock" /> {t("events.here", { name: e.name, when: eventWhen(e, t) })}
+                  </span>
+                ))}
+                {groupCost(p, t, locale(lang)) && <span className="group-cost">{groupCost(p, t, locale(lang))}</span>}
                 {p.warnings?.map((w) => (
                   <small key={w}>{w}</small>
                 ))}
               </button>
             ))}
+            {!!m.data?.events?.length && (
+              <div className="chat-events">
+                <strong>
+                  <Icon name="calendar-clock" /> {t("events.title")}
+                </strong>
+                <ul>
+                  {m.data.events.map((e) => (
+                    <li key={e.event_id}>
+                      <b>{e.name}</b>
+                      <span>
+                        {eventWhen(e, t)}
+                        {e.venue ? " · " + e.venue : ""}
+                        {e.walk_min != null ? " · " + t("events.walk", { n: e.walk_min }) : ""}
+                        {e.price_from != null
+                          ? " · " + t("events.price", { amount: `${e.price_from.toLocaleString(locale(lang))} ₸` })
+                          : ""}
+                        {e.age_group ? " · " + e.age_group : ""}
+                      </span>
+                      {safeUrl(e.source_url) && (
+                        <a className="icon-button" href={safeUrl(e.source_url)} target="_blank" rel="noreferrer">
+                          {t("events.source")}
+                          <Icon name="external-link" />
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <small>{t("events.note")}</small>
+              </div>
+            )}
             {m.data && (
               <details className="trace">
                 <summary>{t("chat.trace")}</summary>

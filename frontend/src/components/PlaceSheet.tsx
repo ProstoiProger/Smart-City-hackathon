@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { safeUrl, type Poi } from "../api";
-import { categoryLabel, hoursLabel, money, ruleLabel, ruleValue, tariff, yesNo } from "../lib/format";
+import { categoryLabel, eventWhen, groupCost, hoursLabel, money, ruleLabel, ruleValue, tariff, yesNo } from "../lib/format";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
@@ -190,6 +190,13 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
         </div>
       </div>
       <p className="hours-note">{hoursLabel(p, t)}</p>
+      {groupCost(p, t, locale(lang)) && <p className="group-cost">{groupCost(p, t, locale(lang))}</p>}
+      {p.events?.map((e) => (
+        <p key={e.event_id} className="event-meta">
+          <Icon name="calendar-clock" /> {t("events.here", { name: e.name, when: eventWhen(e, t) })}{" "}
+          <SourceLink url={e.source_url}>{t("events.source")}</SourceLink>
+        </p>
+      ))}
       <Amenities p={p} />
       <ReviewSignals p={p} />
       <Published p={p} />

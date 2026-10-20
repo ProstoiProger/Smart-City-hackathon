@@ -486,3 +486,67 @@ def test_mini_route_respects_budget_variety_and_hours():
         assert len(set(stems)) == len(stems)
     assert City.mini_route(city, [], origin, 60, when) is None
     assert city.mini_route(pool, None, 60, when) is None
+
+
+def test_group_size_from_text():
+    from backend.app import detect_group
+
+    cases = {
+        "Нас 5, хотим поужинать": 5,
+        "компания из 4 человек": 4,
+        "идём втроём": 3,
+        "нас трое": 3,
+        "бесеуміз серуендейміз": 5,
+        "we are 3 friends": 3,
+        "с друзьями в бар": 4,
+        "тихое кафе": None,
+        "строение у парка": None,
+        "прогулка на 2 часа": None,
+    }
+    for text, size in cases.items():
+        assert detect_group(text) == size, text
+
+
+def test_group_mode_prefers_company_venues_and_budget(client):
+    base = {"provider": "offline", "when": "2026-10-20T19:00:00", "minutes": 120}
+    data = client.post("/api/chat", json={**base, "query": "Нас 5, хотим поужинать возле Байтерека"}).json()
+    assert data["group"] == {"size": 5, "from_text": True}
+    assert data["answer"].startswith("Подбор для компании из 5")
+    assert any(s["action"] == "Компания" for s in data["steps"])
+    assert any(any("Для компании" in r for r in p["reasons"]) for p in data["items"])
+    for p in data["items"]:
+        if p.get("group_cost"):
+            assert p["group_cost"]["size"] == 5 and p["group_cost"]["amount"] >= 0
+        if p["category"] == "food_drink":
+            assert any("забронировать" in w for w in p["warnings"])
+    # The UI selector overrides the text.
+    forced = client.post("/api/chat", json={**base, "query": "поужинать", "group_size": 3}).json()
+    assert forced["group"] == {"size": 3, "from_text": False}
+    assert client.post("/api/chat", json={**base, "query": "кафе"}).json()["group"] is None
+
+
+def test_events_are_timed_reachable_and_attached_to_venues(client):
+    from backend.app import city
+    from backend.hours import parse_when
+
+    when = "2026-10-24T15:30:00"
+    circus = (51.1449, 71.4185)
+    events = city.events_nearby(circus, when, 120)
+    timed = [e for e in events if e["timed"]]
+    assert timed, "the circus show at 16:00 is a minute away"
+    start = parse_when(when)
+    for e in timed:
+        ev = parse_when(e["start"])
+        assert start <= ev and (ev - start).total_seconds() / 60 >= e["walk_min"]
+    # Not reachable before the start: walking 5 minutes to a 15:31 start is impossible.
+    assert not [e for e in city.events_nearby(circus, "2026-10-24T15:58:00", 60) if e["timed"] and e["start"].startswith("2026-10-24T16:00") and e["walk_min"] > 2]
+
+    data = client.post(
+        "/api/chat",
+        json={"query": "Идём в цирк", "provider": "offline", "when": when, "latitude": circus[0], "longitude": circus[1]},
+    ).json()
+    assert data["events"] and any(s["action"] == "Афиша" for s in data["steps"])
+    venue_items = [p for p in data["items"] if p.get("events")]
+    assert venue_items and venue_items[0]["events"][0]["venue_poi_id"] == venue_items[0]["poi_id"]
+    quiet = client.post("/api/chat", json={"query": "тихое кафе", "provider": "offline", "when": "2026-10-20T10:00:00"}).json()
+    assert all((e["walk_min"] or 99) <= 20 for e in quiet["events"])
