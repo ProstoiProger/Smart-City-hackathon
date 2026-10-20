@@ -403,3 +403,133 @@ a.stat:hover {
     padding: 0 10px;
   }
 }
+
+/* Form controls: one look for selects and inputs (no native grey boxes). */
+.filters select,
+.more-filters input:not([type="checkbox"]):not([type="range"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background-color: var(--surface-hover);
+  color: var(--text-1);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.filters select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c6166' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  text-overflow: ellipsis;
+}
+[data-theme="dark"] .filters select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b0b6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+.more-filters input:not([type="checkbox"]):not([type="range"]) {
+  padding: 0 12px;
+  cursor: text;
+  font-weight: 500;
+}
+.filters select:hover,
+.more-filters input:not([type="checkbox"]):not([type="range"]):hover {
+  border-color: var(--border-strong);
+}
+.filters select:focus-visible,
+.more-filters input:not([type="checkbox"]):not([type="range"]):focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background-color: var(--surface-1);
+  box-shadow: 0 0 0 3px rgba(17, 130, 31, 0.15);
+}
+.start-row > div {
+  min-width: 0;
+}
+.origin-actions {
+  gap: 14px;
+}
+.origin-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-caption);
+  text-decoration: none;
+  font-weight: 600;
+}
+.origin-actions button:hover {
+  text-decoration: underline;
+  background: transparent;
+}
+/* "Условия прогулки": a row with a chevron instead of the bare triangle. */
+.more-filters > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-hover);
+  font-size: var(--fs-body-sm);
+}
+.more-filters > summary::-webkit-details-marker {
+  display: none;
+}
+.more-filters > summary::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform 0.15s ease;
+}
+.more-filters[open] > summary::after {
+  transform: rotate(180deg);
+}
+.more-filters > summary:hover {
+  background: var(--border);
+}
+.more-filters[open] > summary {
+  margin-bottom: 10px;
+}
+.more-filters > label:not(.check) {
+  margin-top: 6px;
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+}
+
+.origin-actions {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.origin-actions button {
+  white-space: nowrap;
+  padding: 2px 0;
+}
+.more-filters details > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--link);
+  font-size: var(--fs-caption);
+}
+.more-filters details > summary::-webkit-details-marker {
+  display: none;
+}
+.more-filters details > summary::before {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  font-weight: 700;
+}
+.more-filters details[open] > summary::before {
+  content: "−";
+}

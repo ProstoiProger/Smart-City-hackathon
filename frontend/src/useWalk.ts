@@ -9,7 +9,7 @@ import {
   type Provider,
   type Weather,
 } from "./api";
-import { useT } from "./lib/i18n";
+import { has, useT } from "./lib/i18n";
 
 export type Panel = "places" | "map" | "chat";
 export type Message = { id: number; role: "user" | "assistant"; text: string; data?: ChatResponse };
@@ -188,7 +188,7 @@ export function useWalk() {
 
   function pickOrigin(point: Origin) {
     setOrigin(point);
-    setOriginLabel(t("map.pointOnMap"));
+    setOriginLabel("i18n:map.pointOnMap");
     setPicking(false);
     setNotice(t("notice.originUpdated"));
   }
@@ -206,7 +206,7 @@ export function useWalk() {
           return;
         }
         setOrigin([coords.latitude, coords.longitude]);
-        setOriginLabel(t("filters.myLocation"));
+        setOriginLabel("i18n:filters.myLocation");
         setNotice(t("notice.geoUpdated"));
       },
       () => setError(t("err.geoDenied")),
@@ -228,11 +228,23 @@ export function useWalk() {
     setNotice("");
   }
 
+  // Landmarks are shown in the interface language; map/geolocation starts by their kind;
+  // a place named in the chat keeps the name the server returned.
+  const landmarkKey = Object.entries(meta?.landmarks || {}).find(
+    ([, p]) => origin && p.lat === origin[0] && p.lon === origin[1],
+  )?.[0];
+  const originName =
+    landmarkKey && has("lm." + landmarkKey)
+      ? t("lm." + landmarkKey)
+      : originLabel.startsWith("i18n:")
+        ? t(originLabel.slice(5))
+        : originLabel;
+
   return {
     meta, weather, items, selected, plan, panel, setPanel, loading, busy, error, notice, dismiss,
     filters: {
       query, setQuery, category, setCategory, minutes, setMinutes, when, setWhen,
-      origin, originLabel, setLandmark, picking, setPicking, locate,
+      origin, originLabel, originName, landmarkKey, setLandmark, picking, setPicking, locate,
       openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict, groupSize, setGroupSize,
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },

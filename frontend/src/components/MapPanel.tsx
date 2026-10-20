@@ -23,12 +23,12 @@ export function MapPanel({ walk }: { walk: Walk }) {
         onSelect={(p) => walk.selectPlace(p, false)}
         onOrigin={walk.pickOrigin}
         onTileError={() => setTileError(true)}
-        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originLabel }}
+        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originName }}
         theme={theme}
       />
       <div className="map-top">
         <span className="map-label">
-          {filters.originLabel} <span>→</span> {t("filters.minutes", { n: filters.minutes })}
+          {filters.originName} <span>→</span> {t("filters.minutes", { n: filters.minutes })}
         </span>
         <button className="map-label icon-button" onClick={() => walk.selectPlace(undefined)}>
           <Icon name="x" />

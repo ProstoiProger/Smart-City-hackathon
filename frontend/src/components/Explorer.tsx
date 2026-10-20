@@ -2,7 +2,7 @@ import type { FormEvent } from "react";
 import { colors } from "../Map";
 import { categoryLabel, money } from "../lib/format";
 import { Icon } from "../lib/Icon";
-import { locale, useT } from "../lib/i18n";
+import { has, locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
 import type { Walk } from "../useWalk";
 
@@ -13,9 +13,7 @@ function Filters({ walk }: { walk: Walk }) {
   const t = useT();
   const { meta, loading, setPanel, search } = walk;
   const f = walk.filters;
-  const landmark =
-    Object.entries(meta?.landmarks || {}).find(([, p]) => p.lat === f.origin?.[0] && p.lon === f.origin?.[1])?.[0] ||
-    "custom";
+  const landmark = f.landmarkKey || "custom";
   return (
     <form
       className="filters"
@@ -70,10 +68,11 @@ function Filters({ walk }: { walk: Walk }) {
         <div>
           <label htmlFor="origin">{t("filters.start")}</label>
           <select id="origin" value={landmark} onChange={(e) => f.setLandmark(e.target.value)}>
-            <option value="custom">{f.originLabel}</option>
+            {/* A picked point, geolocation or chat place; landmarks are listed once below. */}
+            {landmark === "custom" && <option value="custom">{f.originName}</option>}
             {Object.entries(meta?.landmarks || {}).map(([key, p]) => (
               <option key={key} value={key}>
-                {p.name}
+                {has("lm." + key) ? t("lm." + key) : p.name}
               </option>
             ))}
           </select>

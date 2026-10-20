@@ -5,23 +5,23 @@
     "lon": 71.407
   },
   "airport": {
-    "name": "Astana airport passenger terminal",
+    "name": "Аэропорт Астаны",
     "lat": 51.0288635,
     "lon": 71.4645061,
     "note": "Terminal forecourt (nearest walking-network point); the terminal centre is ~210 m inside the building."
   },
   "bayterek": {
-    "name": "Bayterek",
+    "name": "Бәйтерек",
     "lat": 51.1282882,
     "lon": 71.4304546
   },
   "museum": {
-    "name": "National Museum",
+    "name": "Национальный музей",
     "lat": 51.1188,
     "lon": 71.4692
   },
   "opera": {
-    "name": "Astana Opera",
+    "name": "Астана Опера",
     "lat": 51.1354512,
     "lon": 71.410753
   },

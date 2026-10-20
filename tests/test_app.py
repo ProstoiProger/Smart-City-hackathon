@@ -644,7 +644,7 @@ def test_place_mentions_have_roles():
     assert roles("Я в Хан Шатыре, где поесть?") == [("Хан Шатыр", "origin")]
     assert roles("кафе у Хан Шатыра") == [("Хан Шатыр", "origin")]
     assert roles("Хан Шатыр жанындамын") == [("Хан Шатыр", "origin")]
-    assert roles("Маршрут на 2 часа от Байтерека") == [("Bayterek", "origin")]
+    assert roles("Маршрут на 2 часа от Байтерека") == [("Бәйтерек", "origin")]
     assert roles("Я сейчас возле Mega Silk Way") == [("MEGA Silk Way", "origin")]
     # Plain words that happen to be venue names are not mentions.
     assert roles("Я - турист, у меня 2 часа") == []
