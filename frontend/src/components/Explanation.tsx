@@ -6,6 +6,8 @@ export function Explanation({ p }: { p: Poi }) {
   const t = useT();
   if (!p.why && !p.what_to_do) return <span>{p.reasons?.join(" · ")}</span>;
   const generated = p.explanation?.generated;
+  // Data-based templates (no Gemini) still suggest a plan: it is an idea, not a fact.
+  const idea = generated || p.explanation?.template;
   const basis = p.explanation?.basis ?? [];
   return (
     <span className="explanation">
@@ -22,7 +24,7 @@ export function Explanation({ p }: { p: Poi }) {
       <small className="source-tag">
         {generated ? t("expl.gemini") : t("expl.data")}
         {basis.length > 0 && t("expl.basis", { list: basis.map((b) => t("basis." + b)).join(", ") })}
-        {generated && t("expl.idea")}
+        {idea && t("expl.idea")}
       </small>
     </span>
   );

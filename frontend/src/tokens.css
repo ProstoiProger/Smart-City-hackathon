@@ -62,6 +62,8 @@
   --error-bg: #fff0e8;
   --error-fg: #813d22;
   --error-border: #d9b39d;
+  --ok-bg: #e2f1e7;
+  --ok-fg: #1d6a3c;
   --map-bg: #e2e8df;
   --cluster-ring: #a3b9a7aa;
   --cluster-core: #d5e2d3;
@@ -96,6 +98,8 @@
   --error-bg: #32190f;
   --error-fg: #f4ad8e;
   --error-border: #6b3826;
+  --ok-bg: #173826;
+  --ok-fg: #86d9a8;
   --map-bg: #1a2420;
   --cluster-ring: #4d6b5799;
   --cluster-core: #2c4337;

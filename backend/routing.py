@@ -39,20 +39,25 @@ class Router:
         self.no_steps = load_npz(DATA / "graph" / "no_steps_seconds.npz")
         # Snap only to the main walking network: indoor or unconnected OSM fragments
         # (e.g. paths inside a mall) would otherwise trap a start with no reachable places.
-        _, labels = connected_components(self.graph, directed=True, connection="weak")
-        self.main_nodes = np.flatnonzero(labels == np.bincount(labels).argmax())
-        self.tree = cKDTree(self.xy[self.main_nodes])
+        # The step-free graph has its own main component: removing stairs cuts off
+        # pieces (e.g. the node next to Bayterek reaches only ~20 nodes without steps).
+        self.main_nodes, self.tree = {}, {}
+        for no_steps, graph in ((False, self.graph), (True, self.no_steps)):
+            _, labels = connected_components(graph, directed=True, connection="weak")
+            nodes = np.flatnonzero(labels == np.bincount(labels).argmax())
+            self.main_nodes[no_steps] = nodes
+            self.tree[no_steps] = cKDTree(self.xy[nodes])
 
-    def snap(self, point):
+    def snap(self, point, no_steps=False):
         lat, lon = point
-        _, i = self.tree.query(
+        _, i = self.tree[no_steps].query(
             (lon * math.cos(math.radians(51.13)) * 111320, lat * 111320)
         )
-        node = int(self.main_nodes[int(i)])
+        node = int(self.main_nodes[no_steps][int(i)])
         return node, meters(point, self.coords[node])
 
     def paths(self, origin, no_steps=False, max_minutes=180, max_snap_m=MAX_SNAP_M):
-        node, snap = self.snap(origin)
+        node, snap = self.snap(origin, no_steps)
         if snap > max_snap_m:
             return None
         times, pred = dijkstra(
@@ -70,7 +75,7 @@ class Router:
         if state is None:
             return None
         start, osnap, times, pred, max_snap_m = state
-        target, dsnap = self.snap(destination)
+        target, dsnap = self.snap(destination, no_steps)
         if dsnap > max_snap_m or not np.isfinite(times[target]):
             return None
         path = [target]

@@ -170,12 +170,18 @@ def test_missing_data_backlog_and_price_kind_constraints():
     assert report["objects_with_branch_price_or_budget"] > 2700
 
 
-def test_flight_budget_requires_buffers_and_deducts_them(client):
+def test_flight_budget_assumes_labelled_buffers_and_deducts_them(client):
     r = client.post(
         "/api/chat",
-        json={"query": "До вылета 2 часа, где погулять?", "provider": "offline"},
+        json={"query": "До вылета 2 часа, где погулять?", "provider": "offline", "when": "2026-10-20T12:00:00"},
     ).json()
-    assert not r["items"] and r["flight_context"]["needs_buffers"]
+    # Without the user's own buffers the chat assumes 30 + 60 min, says so, and still answers.
+    fc = r["flight_context"]
+    assert fc["needs_buffers"] and fc["buffers_source"] == "default_assumption"
+    assert fc["walk_budget_minutes"] == 30 and r["minutes"] == 30
+    assert "30 мин на дорогу" in r["answer"] and any("допущение" in w for w in r["warnings"])
+    assert any(c["label"] == "Вылет" for c in r["considered"])
+    assert all(p["total_duration_min"] <= 30 for p in r["items"])
     r = client.post(
         "/api/chat",
         json={
@@ -187,6 +193,7 @@ def test_flight_budget_requires_buffers_and_deducts_them(client):
         },
     ).json()
     assert r["flight_context"]["walk_budget_minutes"] == 30
+    assert r["flight_context"]["buffers_source"] == "user_input"
     assert all(p["total_duration_min"] <= 30 for p in r["items"])
 
 

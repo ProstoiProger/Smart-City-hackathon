@@ -66,6 +66,21 @@ export function Assistant({ walk }: { walk: Walk }) {
               {m.role === "user" ? t("chat.you") : t("chat.assistant", { p: m.data?.provider_used || t("chat.searchProvider") })}
             </small>
             <p>{m.text}</p>
+            {!!m.data?.considered?.length && (
+              <div className="considered">
+                <strong>
+                  <Icon name="info" /> {t("chat.considered")}
+                </strong>
+                <dl>
+                  {m.data.considered.map((c) => (
+                    <div key={c.label}>
+                      <dt>{c.label}</dt>
+                      <dd>{c.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
             {m.data?.warnings.map((w) => (
               <p className="warning" key={w}>
                 {w}
@@ -127,6 +142,7 @@ export function Assistant({ walk }: { walk: Walk }) {
                         {eventWhen(e, t)}
                         {e.venue ? " · " + e.venue : ""}
                         {e.walk_min != null ? " · " + t("events.walk", { n: e.walk_min }) : ""}
+                        {e.late ? " · " + t("events.late") : ""}
                         {e.price_from != null
                           ? " · " + t("events.price", { amount: `${e.price_from.toLocaleString(locale(lang))} ₸` })
                           : ""}

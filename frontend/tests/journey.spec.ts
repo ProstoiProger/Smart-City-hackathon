@@ -186,3 +186,19 @@ test("answers show timing, nearby events and the company budget", async ({ page 
   await expect(dinner).toContainText("Подбор для компании из 5");
   await expect(dinner.locator(".group-cost").first()).toContainText(/На 5 чел\. ≈/);
 });
+
+test("picking a start on the map does not shift the layout", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("/");
+  await expect(page.locator(".place-row").first()).toBeVisible();
+  await page.getByText("Условия прогулки", { exact: true }).click();
+  const widths = () =>
+    page.locator(".workspace > *").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)));
+  const before = await widths();
+  await page.getByRole("button", { name: "Выбрать на карте" }).click();
+  await page.locator(".map-canvas").click({ position: { x: 200, y: 300 } });
+  await expect(page.locator("#origin")).toHaveValue("custom");
+  expect(await widths()).toEqual(before);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  await expect(page.locator(".map-canvas")).toHaveClass(/leaflet-container/);
+});

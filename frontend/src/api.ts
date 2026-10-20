@@ -34,6 +34,8 @@ export interface Poi {
   website?: string;
   phone?: string;
   opening_hours?: string;
+  /** Day code (Mo…Su) → [open, close] intervals; a missing or empty day is a day off. */
+  opening_hours_by_day?: Record<string, [string, string][]> | null;
   hours_status: { status: string; label: string };
   rating?: number;
   ratings_count?: number;
@@ -75,7 +77,7 @@ export interface Poi {
   linked_venue_documents?: { source_id: string; url: string; title?: string }[];
   why?: string | null;
   what_to_do?: string | null;
-  explanation?: { generated: boolean; basis: string[]; note: string };
+  explanation?: { generated: boolean; template?: boolean; basis: string[]; note: string };
   evidence?: Record<string, string>;
   review_signals?: Record<string, ReviewSignal> | null;
   reviews_considered?: number | null;
@@ -154,6 +156,8 @@ export interface ChatResponse {
   mini_route?: Plan | null;
   events?: EventMatch[];
   group?: { size: number; from_text: boolean } | null;
+  /** What the answer used: start, budget, time, filters, intents (server-composed text). */
+  considered?: { label: string; value: string }[];
 }
 export interface EventMatch {
   event_id: string;
@@ -165,6 +169,8 @@ export interface EventMatch {
   venue?: string;
   venue_poi_id?: string | null;
   walk_min?: number | null;
+  /** The show starts before the walker can get there on foot. */
+  late?: boolean;
   price_from?: number | null;
   currency?: string | null;
   age_group?: string | null;

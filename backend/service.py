@@ -8,6 +8,7 @@ from .settings import DATA
 from .index import SearchIndex
 from .routing import MAX_SNAP_M, Router, meters
 from .hours import closure, hours_status, parse_when
+from .query import STOP_WORDS, content_query, fold, mention_role, tokens
 
 LABELS = {
     "food_drink": "Кафе и рестораны",
@@ -33,6 +34,54 @@ ALIASES = [
     (r"турис|достопр|посмотр|көрікті|tourist", ["sightseeing", "culture"]),
     (r"ноч|түн|\bnight", ["nightlife", "entertainment"]),
 ]
+# "Something unusual" names no category; used only when nothing more specific is asked
+# ("түнде қызықты" stays a night request).
+UNUSUAL = (
+    r"необычн|интересн|уникальн|удивит|креативн|unusual|interesting|unique|қызықты|ерекше",
+    ["sightseeing", "culture", "entertainment"],
+)
+# Landmarks recognised in the request text (keys of data/landmarks.json).
+LANDMARK_PATTERNS = {
+    "mega": r"\bmega(?:\s+silk\s+way)?\b|\bмег(?:а|и|е|у|ой)(?:\s+силк\s+уэй)?\b",
+    "bayterek": r"байтерек|бәйтерек|bayterek|baiterek",
+    "museum": r"национальн.{0,8}музе|ұлттық.{0,8}мұражай",
+    "opera": r"астана опера|astana opera",
+    "expo": r"\bexpo\b|\bэкспо\b",
+    "alem": r"alem\.ai|алем",
+}
+# Names that are a kind of place, not one place: "Столовая", "Кофейня", "Сквер".
+GENERIC_NAMES = {
+    "сквер", "фонтан", "аллея", "бульвар", "площадь", "набережная", "магазин", "аптека",
+    "киоск фастфуда", "киоск быстрого питания", "точка быстрого питания", "киоск самсы",
+    "буфет", "донерная", "шашлычная", "шаверма", "шашлычок", "игровая комната",
+    "детская площадка", "спортивная площадка", "кафе", "кофейня", "столовая", "бар",
+}
+
+
+def name_key(text):
+    return " ".join(t for t, _, _ in tokens(text))
+
+
+def read_intents(q):
+    """Categories and amenities the request asks for (the same rules rank and explain)."""
+    query = q.casefold()
+    preferred = set()
+    for pattern, cats in ALIASES:
+        if re.search(pattern, query):
+            preferred.update(cats)
+    if not preferred and re.search(UNUSUAL[0], query):
+        preferred.update(UNUSUAL[1])
+    food_intent = bool(re.search(ALIASES[0][0], query))
+    # "кафе" alone narrows to food; "кафе и музей" keeps every named category.
+    other_category = any(re.search(rx, query) for rx, _ in ALIASES[1:])
+    if food_intent and not other_category and not re.search(r"\bили\b|\bзатем\b|сосын|немесе", query):
+        preferred = {"food_drink"}
+    wanted = [a for a, rx in REVIEW_INTENTS.items() if re.search(rx, query)]
+    if "quiet" in wanted and not preferred:
+        preferred.update(["food_drink", "quiet_spaces", "nature"])
+    if "laptop_work" in wanted and not preferred:
+        preferred.update(["food_drink", "quiet_spaces"])
+    return preferred, wanted
 DEFAULT_STAY = {
     "food_drink": 35,
     "nature": 25,
@@ -243,6 +292,20 @@ class City:
             ]
         self.index = SearchIndex(self.pois)
         self.router = Router()
+        # Place names a request can mention ("я у Хан Шатыра", "сходить в Столичный цирк").
+        generic = {
+            name_key(n)
+            for n in [*GENERIC_NAMES, *LABELS.values(), *(p.get("subcategory_label") for p in self.pois)]
+            if n
+        }
+        self.names = {}
+        for p in self.pois:
+            if not p.get("recommendation_eligible", True):
+                continue
+            key = name_key((p.get("display_name") or "").split(",")[0])
+            if len(key.replace(" ", "")) < 5 or key in generic or key in STOP_WORDS:
+                continue
+            self.names.setdefault(key, []).append(p)
         docs_path = DATA / "venue_policy_sources.jsonl"
         self.venue_docs = (
             {
@@ -290,24 +353,68 @@ class City:
         out["reviews_considered"] = reviews["reviews_considered"] if reviews else None
         return out
 
-    def origin_from_message(self, message):
-        patterns = {
-            "mega": r"mega|мега",
-            "bayterek": r"байтерек|бәйтерек|bayterek",
-            "museum": r"национальн.{0,8}музе|ұлттық.{0,8}мұражай",
-            "opera": r"астана опера|astana opera",
-            "alem": r"alem\.ai|алем",
-        }
-        for key, pattern in patterns.items():
-            if re.search(pattern, message, re.I):
-                lm = self.landmarks[key]
-                return (lm["lat"], lm["lon"]), lm["name"]
-        # Actual POI names can locate the search, without persisting a user address.
-        for p in self.pois:
-            name = p.get("display_name") or ""
-            if len(name) > 7 and name.casefold() in message.casefold():
-                return (p["latitude"], p["longitude"]), name
-        return None, None
+    def mentions(self, message):
+        """Landmarks and named places in the text, each with its role in the request:
+        'origin' ("я у Хан Шатыра"), 'destination' ("сходить в Хан Шатыр") or None.
+
+        Names match whole words; the last word may carry a case ending ("Байтерека",
+        "Хан Шатырға"). Generic names ("Кофейня", "Сквер") are not places.
+        """
+        toks = tokens(message)
+        found, taken = [], set()
+        for key, pattern in LANDMARK_PATTERNS.items():
+            m = re.search(pattern, message, re.I)
+            idx = [i for i, (_, s, e) in enumerate(toks) if m and s < m.end() and e > m.start()]
+            if not idx or taken & set(idx):
+                continue
+            lm = self.landmarks[key]
+            found.append(
+                {"kind": "landmark", "key": key, "label": lm["name"], "point": (lm["lat"], lm["lon"]),
+                 "poi_ids": [], "tokens": idx, "role": mention_role(toks, idx[0], idx[-1])}
+            )
+            taken.update(idx)
+        i = 0
+        while i < len(toks):
+            hit = None
+            for n in range(min(5, len(toks) - i), 0, -1):
+                span = list(range(i, i + n))
+                if taken & set(span):
+                    continue
+                words = [toks[k][0] for k in span]
+                for cut in range(0, 4):
+                    last = words[-1][: len(words[-1]) - cut]
+                    if len(last) < 3:
+                        break
+                    key = " ".join(words[:-1] + [last])
+                    if key in self.names:
+                        hit = (span, key, words[-1][len(last):])
+                        break
+                if hit:
+                    break
+            if not hit:
+                i += 1
+                continue
+            span, key, suffix = hit
+            if len(span) == 1 and not message[toks[i][1]].isupper():
+                # One-word names are often plain words ("Турист", "Мангал"): only a
+                # capitalised word in the request counts as the name.
+                i += 1
+                continue
+            pois = sorted(self.names[key], key=lambda p: -(p.get("ratings_count") or 0))
+            # A chain with branches across the city locates nothing by name alone.
+            single = all(meters((p["latitude"], p["longitude"]), (pois[0]["latitude"], pois[0]["longitude"])) < 300 for p in pois)
+            found.append(
+                {"kind": "poi", "key": key, "label": pois[0].get("display_name", "").split(",")[0],
+                 "point": (pois[0]["latitude"], pois[0]["longitude"]) if single else None,
+                 "poi_ids": [p["poi_id"] for p in pois], "tokens": span,
+                 "role": mention_role(toks, span[0], span[-1], suffix)}
+            )
+            taken.update(span)
+            i = span[-1] + 1
+        return sorted(found, key=lambda m: m["tokens"][0])
+
+    def named_ids(self, q):
+        return {pid for m in self.mentions(q) for pid in m["poi_ids"]}
 
     def search(
         self,
@@ -323,15 +430,17 @@ class City:
         distinct_names=False,
         max_snap_m=MAX_SNAP_M,
         group_size=None,
+        max_walk_min=None,
     ):
-        scores = self.index.scores(q)
+        # Lexical scores ignore filler words: "хочу" must not find "Хочу хинкали".
+        if q.strip() and not tokens(q):
+            return []  # symbols only, nothing to search for
+        text = content_query(q)
+        scores = self.index.scores(text)
+        named = self.named_ids(q) if q else set()
         group = group_size if group_size and group_size >= 3 else None
         query = q.casefold()
-        preferred = set()
-        for pattern, cats in ALIASES:
-            if re.search(pattern, query):
-                preferred.update(cats)
-        food_intent = bool(re.search(ALIASES[0][0], query))
+        preferred, wanted = read_intents(q)
         child_room = bool(
             re.search(
                 r"детск.{0,8}(?:комнат|угол|меню)|балалар.{0,10}(?:бөлме|мәзір)", query
@@ -344,17 +453,8 @@ class City:
             family_requirements.append("угол")
         if re.search(r"детск.{0,8}меню|балалар.{0,10}мәзір", query):
             family_requirements.append("меню")
-        # "кафе" alone narrows to food; "кафе и музей" keeps every named category.
-        other_category = any(re.search(rx, query) for rx, _ in ALIASES[1:])
-        if food_intent and not other_category and not re.search(r"\bили\b|\bзатем\b|сосын|немесе", query):
-            preferred = {"food_drink"}
-        wanted = [a for a, rx in REVIEW_INTENTS.items() if re.search(rx, query)]
         need_quiet = "quiet" in wanted
         need_free = bool(re.search(r"бесплат|тегін|\bfree\b", query))
-        if need_quiet and not preferred:
-            preferred.update(["food_drink", "quiet_spaces", "nature"])
-        if "laptop_work" in wanted and not preferred:
-            preferred.update(["food_drink", "quiet_spaces"])
         # Strict mode filters on amenities a visitor relies on; kids/view only rank.
         strict_attrs = [
             a
@@ -395,31 +495,30 @@ class City:
                 continue
             if (
                 origin
-                and meters(origin, (p["latitude"], p["longitude"])) > minutes * 75
+                and meters(origin, (p["latitude"], p["longitude"])) > min(minutes, max_walk_min or minutes) * 75
             ):
                 continue
             score = float(scores[i])
-            fold = (
-                lambda s: re.sub(r"[^\w]+", " ", s.casefold())
-                .translate(str.maketrans("әқғңұүөіё", "акгнууоие"))
-                .strip()
-            )
             if q and any(
-                fold(q) == fold(a.split(",")[0])
+                name_key(q) == name_key(a.split(",")[0])
                 for a in p.get("aliases") or [p.get("display_name", "")]
             ):
                 score += 1.5
+            # The request names this place ("идём в Столичный цирк").
+            if p["poi_id"] in named:
+                score += 1.0
             if p.get("rating_bayesian") is not None:
                 score += max(0, (p["rating_bayesian"] - 3) / 2) * 0.035
             if (
-                q
+                text
                 and not preferred
+                and p["poi_id"] not in named
                 and self.index.backend == "tfidf"
                 and float(scores[i]) <= 0
             ):
                 continue
             if preferred:
-                if p.get("category") not in preferred:
+                if p.get("category") not in preferred and p["poi_id"] not in named:
                     continue
                 score += 0.3
             for a in wanted:
@@ -427,7 +526,7 @@ class City:
                 score += 0.3 if kind == "confirmed" else REVIEW_BOOST.get(kind, 0.0)
             if child_room and family_matches:
                 score += 0.3
-            if not q and p.get("category") in ("sightseeing", "nature", "culture"):
+            if not text and p.get("category") in ("sightseeing", "nature", "culture"):
                 score += 0.15
             if group:
                 # Companies of 3+: venues that publish group seating rank higher;
@@ -459,6 +558,8 @@ class City:
             if origin and not route:
                 continue
             travel = route["duration_min"] if route else 0
+            if max_walk_min and travel > max_walk_min:
+                continue  # "рядом": the walk itself is limited, not only the whole budget
             full_stay = p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(
                 p.get("category"), 30
             )
@@ -476,9 +577,10 @@ class City:
             obj = self.public(p, arrival, stay)
             obj["suggested_visit_duration_min"] = stay
             obj["typical_visit_min"] = full_stay
-            # Full visits rank above shortened ones.
+            # Full visits rank above shortened ones; a long walk costs more than it used
+            # to (0.08): a 90-minute walk to an equally good place is not a recommendation.
             obj["search_score"] = round(
-                score - (travel / minutes) * 0.08 - 0.15 * (1 - stay / full_stay), 4
+                score - (travel / minutes) * 0.2 - 0.15 * (1 - stay / full_stay), 4
             )
             obj["route"] = route
             obj["total_duration_min"] = round(travel + stay, 1)
@@ -494,7 +596,7 @@ class City:
                     f"Короткий визит: ~{stay} мин (обычно ~{full_stay}) — столько остаётся после дороги."
                 )
             if p.get("semantic_attributes"):
-                stems = [w[:5] for w in re.findall(r"[a-zа-яёәіңғүұқөһ]{4,}", query)]
+                stems = [w[:5] for w in re.findall(r"[a-zа-яёәіңғүұқөһ]{4,}", text)]
                 relevant = [
                     a
                     for a in p["semantic_attributes"]
@@ -588,8 +690,12 @@ class City:
             diverse.append(item)
         return diverse[:limit]
 
-    def venue_candidate(self, pid, origin, minutes, when, no_steps=False, max_snap_m=MAX_SNAP_M):
-        """An event venue as a chat candidate, with the same route/hours fields as search results."""
+    def venue_candidate(
+        self, pid, origin, minutes, when, no_steps=False, max_snap_m=MAX_SNAP_M,
+        reason="Площадка опубликованного события",
+    ):
+        """A place the request points at (event venue, named destination) as a chat
+        candidate, with the same route/hours fields as search results."""
         p = self.byid.get(pid)
         if not p or closure(p):
             return None
@@ -604,7 +710,7 @@ class City:
             route=route,
             total_duration_min=round(travel + stay, 1),
             search_score=1.0,
-            reasons=["Площадка опубликованного события"],
+            reasons=[reason],
             warnings=(
                 [f"С дорогой и посещением ~{round(travel + stay)} мин: больше бюджета прогулки ({minutes} мин)."]
                 if travel + stay > minutes
@@ -623,12 +729,15 @@ class City:
         max_snap_m=MAX_SNAP_M,
         limit=3,
         reachable_only=True,
+        keep_venues=(),
     ):
         """Published events the walker can catch during this walk.
 
         Timed events must start inside the walk window and be reachable on foot
         before they start; day-range listings (exhibitions) count while they run.
         Listings are announcements, not confirmations: cancelled/past ones are skipped.
+        At `keep_venues` (the place the user is heading to) a show that cannot be
+        reached on foot in time is kept and marked `late`, so the answer can say so.
         """
         start = parse_when(when)
         end = start + timedelta(minutes=minutes)
@@ -669,7 +778,8 @@ class City:
                 else None
             )
             walk = route["duration_min"] if route else None
-            if timed and walk is not None and start + timedelta(minutes=walk) > ev_start:
+            late = bool(timed and walk is not None and start + timedelta(minutes=walk) > ev_start)
+            if late and (venue or {}).get("poi_id") not in keep_venues:
                 continue  # cannot arrive before it begins
             if reachable_only and origin and walk is None:
                 continue
@@ -687,6 +797,7 @@ class City:
                     "venue": e.get("event_location") or (venue or {}).get("display_name"),
                     "venue_poi_id": venue["poi_id"] if venue else None,
                     "walk_min": round(walk) if walk is not None else None,
+                    "late": late,
                     "price_from": price.get("amount_min"),
                     "currency": price.get("currency"),
                     "age_group": e.get("event_age_group"),
@@ -695,7 +806,7 @@ class City:
                     "note": "Опубликованный анонс: проведение и наличие билетов не подтверждены.",
                 }
             )
-        found.sort(key=lambda x: (x["walk_min"] is None, x["start"] or "", x["walk_min"] or 0))
+        found.sort(key=lambda x: (x["venue_poi_id"] not in keep_venues, x["walk_min"] is None, x["start"] or "", x["walk_min"] or 0))
         return found[:limit]
 
     def mini_route(
@@ -709,6 +820,7 @@ class City:
         prefer=(),
         size=3,
         pool=16,
+        cover=(),
     ):
         """Best ordered set of up to `size` candidates that fits the time budget together.
 
@@ -716,6 +828,8 @@ class City:
         `pool` candidates is checked on the walking graph (travel between stops, visit
         estimates, opening hours at arrival). The best one maximizes relevance and
         category variety and, among equal sets, walks less. Falls back to 2 stops.
+        `cover` lists categories the request named together ("музей и кофе"): a route
+        must include each of them; only if none fits, the route is built without it.
         """
         if not origin:
             return None
@@ -760,43 +874,66 @@ class City:
             subs = [cands[j - 1].get("subcategory") for j in seq]
             return len(subs) - len(set(subs))
 
+        # A tight budget may shorten visits to the category minimum (a coffee, a look
+        # at a monument), as single-place search does; full visits are preferred.
+        short = [0] + [
+            min(s, MIN_STAY.get(p.get("category"), 15)) for s, p in zip(stay[1:], cands)
+        ]
+
+        def walk_through(seq, stays):
+            elapsed, prev, arrivals, used = 0.0, 0, [], []
+            for j in seq:
+                leg = legs.get((prev, j))
+                if leg is None:
+                    return None
+                arrival = elapsed + leg["duration_min"]
+                status = hours_status(cands[j - 1], start + timedelta(minutes=arrival), stays[j])
+                elapsed = arrival + stays[j]
+                if elapsed > minutes or status["status"] in ("closed_reported", "closed_by_schedule"):
+                    return None
+                arrivals.append(arrival)
+                used.append(leg)
+                prev = j
+            return elapsed, arrivals, used, [stays[j] for j in seq]
+
         best = None
-        for count in (size, 2):
+        needs = [set(cover), set()] if cover else [set()]
+        attempts = [(need, count) for need in needs for count in (size, 2) if len(need) <= count]
+        for need, count in attempts:
             for seq in itertools.permutations(range(1, len(points)), count):
                 if not varied(seq):
                     continue
-                elapsed, prev, arrivals, used = 0.0, 0, [], []
-                for j in seq:
-                    leg = legs.get((prev, j))
-                    if leg is None:
-                        break
-                    arrival = elapsed + leg["duration_min"]
-                    status = hours_status(cands[j - 1], start + timedelta(minutes=arrival), stay[j])
-                    elapsed = arrival + stay[j]
-                    if elapsed > minutes or status["status"] in ("closed_reported", "closed_by_schedule"):
-                        break
-                    arrivals.append(arrival)
-                    used.append(leg)
-                    prev = j
-                else:
-                    ids = [cands[j - 1]["poi_id"] for j in seq]
-                    value = (
-                        sum(relevance.get(pid, 0) for pid in ids)
-                        + 0.12 * len({cands[j - 1].get("category") for j in seq})
-                        + 0.4 * sum(pid in prefer for pid in ids)
-                        - 0.25 * repeats(seq)
-                        - 0.002 * sum(leg["duration_min"] for leg in used)
-                    )
-                    if best is None or value > best[0]:
-                        best = (value, seq, used, arrivals, elapsed)
+                if need and not need <= {cands[j - 1].get("category") for j in seq}:
+                    continue
+                result = walk_through(seq, stay) or walk_through(seq, short)
+                if result is None:
+                    continue
+                elapsed, arrivals, used, visits = result
+                ids = [cands[j - 1]["poi_id"] for j in seq]
+                shortened = sum(v < stay[j] for v, j in zip(visits, seq))
+                value = (
+                    sum(relevance.get(pid, 0) for pid in ids)
+                    + 0.12 * len({cands[j - 1].get("category") for j in seq})
+                    + 0.4 * sum(pid in prefer for pid in ids)
+                    - 0.25 * repeats(seq)
+                    - 0.002 * sum(leg["duration_min"] for leg in used)
+                    - 0.05 * shortened
+                )
+                if best is None or value > best[0]:
+                    best = (value, seq, used, arrivals, elapsed, need, visits)
             if best:
                 break
         if not best:
             return None
-        _, seq, used, arrivals, elapsed = best
+        _, seq, used, arrivals, elapsed, need, visits = best
+        missing = [c for c in cover if c not in need]
         stops = []
-        for j, arrival in zip(seq, arrivals):
-            stop = self.public(cands[j - 1], start + timedelta(minutes=arrival), stay[j])
+        for j, arrival, visit in zip(seq, arrivals, visits):
+            stop = self.public(cands[j - 1], start + timedelta(minutes=arrival), visit)
+            stop["suggested_visit_duration_min"] = visit
+            stop["typical_visit_min"] = stay[j]
+            if visit < stay[j]:
+                stop["visit_shortened"] = True
             stop["arrival_offset_min"] = round(arrival)
             stops.append(stop)
         walk = sum(leg["duration_min"] for leg in used)
@@ -808,7 +945,14 @@ class City:
             "walk_duration_min": round(walk, 1),
             "budget_minutes": minutes,
             "return_trip_included": False,
-            "warnings": [
+            "covers_requested": not missing,
+            "warnings": (
+                ["Не все названные виды мест помещаются в маршрут по времени и часам работы: "
+                 + ", ".join(LABELS.get(c, c).lower() for c in missing) + "."]
+                if missing
+                else []
+            )
+            + [
                 "Порядок и время рассчитаны по пешеходному графу OSM; маршрут без возвращения к началу.",
                 "Время посещения — оценка; часы и доступность требуют уточнения.",
             ],

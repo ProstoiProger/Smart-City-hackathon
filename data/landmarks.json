@@ -34,5 +34,11 @@
     "name": "alem.ai",
     "lat": 51.0904,
     "lon": 71.4182
+  },
+  "expo": {
+    "name": "EXPO 2017",
+    "lat": 51.089227,
+    "lon": 71.41629,
+    "note": "Centre of the EXPO territory (Visit Astana record visitastana:6616472833ff7911), next to the Nur Alem sphere."
   }
 }

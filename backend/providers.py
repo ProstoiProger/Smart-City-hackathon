@@ -9,6 +9,7 @@ deterministic search result is used and labelled as such.
 import json
 import re
 import httpx
+from .query import language
 from .settings import setting
 
 PROVIDERS = ("offline", "gemini")
@@ -141,11 +142,146 @@ def gemini_json(prompt, schema, model=None, temperature=0.2, timeout=None, think
         raise ProviderError("Gemini вернул некорректный JSON") from None
 
 
-def offline_picks(candidates):
-    return [
-        {"poi_id": p["poi_id"], "why": None, "what_to_do": None, "basis": [], "generated": False}
-        for p in candidates[:3]
-    ]
+CATEGORY = {
+    "ru": {
+        "food_drink": "Кафе", "nature": "Парк", "culture": "Музей / культура", "sightseeing": "Достопримечательность",
+        "children": "Для детей", "entertainment": "Развлечения", "quiet_spaces": "Тихое место", "sport": "Спорт",
+        "shopping": "Торговый центр", "nightlife": "Вечерний досуг", "wellness": "Отдых",
+    },
+    "kk": {
+        "food_drink": "Кафе", "nature": "Саябақ", "culture": "Мұражай / мәдениет", "sightseeing": "Көрікті орын",
+        "children": "Балаларға", "entertainment": "Ойын-сауық", "quiet_spaces": "Тыныш орын", "sport": "Спорт",
+        "shopping": "Сауда орталығы", "nightlife": "Кешкі демалыс", "wellness": "Демалыс",
+    },
+    "en": {
+        "food_drink": "Café", "nature": "Park", "culture": "Museum / culture", "sightseeing": "Sight",
+        "children": "For kids", "entertainment": "Entertainment", "quiet_spaces": "Quiet place", "sport": "Sport",
+        "shopping": "Mall", "nightlife": "Evening out", "wellness": "Leisure",
+    },
+}
+TODO = {
+    "ru": {
+        "food_drink": "Возьмите кофе или перекусите — около {m} мин.",
+        "nature": "Пройдите круг по аллеям — около {m} мин.",
+        "culture": "Осмотрите экспозицию — около {m} мин; билеты и правила уточните на входе.",
+        "sightseeing": "Осмотрите место и сделайте фото — около {m} мин.",
+        "children": "Около {m} мин на игры; возрастные ограничения и цены уточните на месте.",
+        "entertainment": "Около {m} мин на развлечения; расписание сеансов уточните заранее.",
+        "nightlife": "Около {m} мин; вход и дресс-код уточните заранее.",
+        "shopping": "Около {m} мин: магазины и фуд-корт.",
+        "quiet_spaces": "Около {m} мин: посидите, почитайте или поработайте.",
+        "show": "Посмотрите афишу и выберите спектакль, концерт или сеанс — около {m} мин; билеты лучше взять заранее.",
+        None: "Около {m} мин на месте.",
+    },
+    "kk": {
+        "food_drink": "Кофе ішіңіз немесе тамақтаныңыз — шамамен {m} мин.",
+        "nature": "Аллеялармен серуендеңіз — шамамен {m} мин.",
+        "culture": "Экспозицияны қараңыз — шамамен {m} мин; билет пен ережені кіреберісте нақтылаңыз.",
+        "sightseeing": "Орынды аралап, суретке түсіңіз — шамамен {m} мин.",
+        "children": "Ойынға шамамен {m} мин; жас шектеуі мен бағаны орнында нақтылаңыз.",
+        "entertainment": "Ойын-сауыққа шамамен {m} мин; кестені алдын ала нақтылаңыз.",
+        "nightlife": "Шамамен {m} мин; кіру шартын алдын ала нақтылаңыз.",
+        "shopping": "Шамамен {m} мин: дүкендер мен фуд-корт.",
+        "quiet_spaces": "Шамамен {m} мин: отырып, кітап оқыңыз немесе жұмыс істеңіз.",
+        "show": "Афишаны қарап, қойылым, концерт немесе сеанс таңдаңыз — шамамен {m} мин; билетті алдын ала алған дұрыс.",
+        None: "Орында шамамен {m} мин.",
+    },
+    "en": {
+        "food_drink": "Grab a coffee or a bite — about {m} min.",
+        "nature": "Take a loop along the alleys — about {m} min.",
+        "culture": "See the exhibition — about {m} min; check tickets and rules at the entrance.",
+        "sightseeing": "Look around and take photos — about {m} min.",
+        "children": "About {m} min of play; check age limits and prices on site.",
+        "entertainment": "About {m} min of fun; check session times in advance.",
+        "nightlife": "About {m} min; check entry rules in advance.",
+        "shopping": "About {m} min: shops and the food court.",
+        "quiet_spaces": "About {m} min to sit, read or work.",
+        "show": "Check the playbill and pick a show, concert or session — about {m} min; better buy tickets in advance.",
+        None: "About {m} min on site.",
+    },
+}
+SHOW = re.compile(r"театр|балет|опер|филармон|концерт|цирк|кинотеатр|theat|opera|ballet|concert|cinema", re.I)
+
+
+def _ratings(n, lang):
+    if lang == "ru":
+        return f"{n} " + (
+            "оценка" if n % 10 == 1 and n % 100 != 11
+            else "оценки" if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14
+            else "оценок"
+        )
+    return f"{n} " + ("баға" if lang == "kk" else "ratings")
+PHRASES = {
+    "ru": {"walk": "{n} мин пешком", "open": "по расписанию открыто к приходу", "hours_unknown": "часы работы не подтверждены",
+           "rating": "рейтинг {r} ({n})", "reviews": "по отзывам 2ГИС: {list}", "data": "по данным места: {list}",
+           "group": "для компании: {list}"},
+    "kk": {"walk": "жаяу {n} мин", "open": "кесте бойынша келгенде ашық", "hours_unknown": "жұмыс уақыты расталмаған",
+           "rating": "рейтинг {r} ({n})", "reviews": "2ГИС пікірлері бойынша: {list}", "data": "орын деректері бойынша: {list}",
+           "group": "топқа: {list}"},
+    "en": {"walk": "{n} min on foot", "open": "open by schedule on arrival", "hours_unknown": "opening hours not confirmed",
+           "rating": "rated {r} ({n})", "reviews": "per 2GIS reviews: {list}", "data": "per place data: {list}",
+           "group": "for a group: {list}"},
+}
+AMENITY = {
+    "ru": {"power_outlets": "розетки", "quiet": "тихо", "laptop_work": "можно поработать", "wifi": "Wi-Fi",
+           "kids": "удобно с детьми", "interactive": "интерактив", "accessibility": "доступно для коляски", "view": "красивый вид"},
+    "kk": {"power_outlets": "розетка", "quiet": "тыныш", "laptop_work": "жұмыс істеуге болады", "wifi": "Wi-Fi",
+           "kids": "балалармен ыңғайлы", "interactive": "интерактив", "accessibility": "арбаға қолжетімді", "view": "әдемі көрініс"},
+    "en": {"power_outlets": "power outlets", "quiet": "quiet", "laptop_work": "laptop-friendly", "wifi": "Wi-Fi",
+           "kids": "kid-friendly", "interactive": "interactive", "accessibility": "wheelchair access", "view": "nice view"},
+}
+
+
+def explain_from_data(p, lang="ru", visit_min=None):
+    """Template "why" / "what to do" built only from the candidate's own fields.
+
+    Used when Gemini is unavailable, so every card still says why it was chosen;
+    labelled as data-based text, not generation.
+    """
+    lang = lang if lang in TODO else "ru"
+    say = PHRASES[lang]
+    parts, basis = [], ["place_data"]
+    route = p.get("route") or {}
+    if route.get("duration_min") is not None:
+        parts.append(say["walk"].format(n=round(route["duration_min"])))
+        basis.append("route_time")
+    evidence = p.get("evidence") or {}
+    confirmed = [AMENITY[lang][a] for a, k in evidence.items() if k == "confirmed"]
+    supported = [AMENITY[lang][a] for a, k in evidence.items() if k == "supported"]
+    if confirmed:
+        parts.append(say["data"].format(list=", ".join(confirmed)))
+    if supported:
+        parts.append(say["reviews"].format(list=", ".join(supported)))
+        basis.append("reviews")
+    # A rating is a reason only when it is good and rests on more than a handful of votes.
+    if (p.get("rating") or 0) >= 4 and (p.get("ratings_count") or 0) >= 10:
+        parts.append(say["rating"].format(r=p["rating"], n=_ratings(p["ratings_count"], lang)))
+    status = (p.get("hours_status") or {}).get("status")
+    if status == "open_by_schedule":
+        parts.append(say["open"])
+        basis.append("opening_hours")
+    elif status == "unknown":
+        parts.append(say["hours_unknown"])
+    attrs = set(p.get("semantic_attributes") or [])
+    group = [f for f in ("VIP-зал", "Кабинки", "Проведение банкетов") if f in attrs]
+    if p.get("group_cost") and group:
+        parts.append(say["group"].format(list=", ".join(group).lower()))
+    head = CATEGORY[lang].get(p.get("category")) or p.get("subcategory_label") or ""
+    why = (head + ": " if head else "") + "; ".join(parts) + "." if parts else None
+    minutes = visit_min or p.get("suggested_visit_duration_min") or 30
+    kind = "show" if SHOW.search(f"{p.get('subcategory_label') or ''} {p.get('display_name') or ''}") else p.get("category")
+    todo = TODO[lang].get(kind, TODO[lang][None]).format(m=minutes)
+    return {"why": why, "what_to_do": todo, "basis": basis}
+
+
+def offline_picks(candidates, message="", context=None):
+    lang = language(message)
+    visits = {s["poi_id"]: s.get("visit_min") for s in (context or {}).get("mini_route") or []}
+    picks = []
+    for p in candidates[:3]:
+        text = explain_from_data(p, lang, visits.get(p["poi_id"]))
+        picks.append({"poi_id": p["poi_id"], **text, "generated": False, "template": True})
+    return picks
 
 
 def _fact(p):
@@ -172,9 +308,9 @@ def _clean(text):
 def select(provider, message, candidates, context=None):
     """Return (picks, summary, warning). Picks carry model text only when validated."""
     if provider == "offline" or not candidates:
-        return offline_picks(candidates), None, None
+        return offline_picks(candidates, message, context), None, None
     if not configured(provider):
-        return offline_picks(candidates), None, "Для Gemini не задан GEMINI_API_KEY. Использован локальный поиск."
+        return offline_picks(candidates, message, context), None, "Для Gemini не задан GEMINI_API_KEY. Использован локальный поиск."
     prompt = PROMPT + json.dumps(
         {"request": message, "context": context or {}, "candidates": [_fact(p) for p in candidates]},
         ensure_ascii=False,
@@ -205,7 +341,7 @@ def select(provider, message, candidates, context=None):
         return picks, _clean(data.get("summary")), None
     except ProviderError as exc:
         # ProviderError messages are composed here and never contain URLs or keys.
-        return offline_picks(candidates), None, f"{exc}. Рекомендации построены локальным поиском."
+        return offline_picks(candidates, message, context), None, f"{exc}. Рекомендации построены локальным поиском."
     except (ValueError, KeyError, TypeError, AttributeError):
         # Never serialize provider exception strings: URLs or headers can contain credentials.
-        return offline_picks(candidates), None, "Модель не ответила корректно. Рекомендации построены локальным поиском."
+        return offline_picks(candidates, message, context), None, "Модель не ответила корректно. Рекомендации построены локальным поиском."

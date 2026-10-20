@@ -73,7 +73,9 @@ with TestClient(app) as c:
     assert ocean['standard_ticket_price']['amount']==5600 and ocean['child_ticket_price']['amount']==4400
     assert ocean['adult_ticket_price'] is None
     flight=c.post('/api/chat',json={'query':'У меня 2 часа до вылета','provider':'offline'}).json()
-    assert not flight['items'] and flight['flight_context']['needs_buffers']
+    fc=flight['flight_context']
+    assert fc['needs_buffers'] and fc['buffers_source']=='default_assumption' and fc['walk_budget_minutes']==30
+    assert all(p['total_duration_min']<=30 for p in flight['items'])
     print(json.dumps({'health':health,'frontend':'served','named_search':'passed','subvenue_prices':'passed','flight_guard':'passed'}))
 """,
             ],

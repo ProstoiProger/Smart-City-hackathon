@@ -74,6 +74,11 @@ export default function CityMap({
       m.remove();
     };
   }, []);
+  // Toggle the class on the element itself: a React className would overwrite the
+  // classes Leaflet adds (leaflet-container clips the tiles; without it the page scrolls).
+  useEffect(() => {
+    el.current?.classList.toggle("picking", picking);
+  }, [picking]);
   useEffect(() => {
     const group = markers.current;
     if (!group) return;
@@ -165,7 +170,7 @@ export default function CityMap({
   return (
     <div
       ref={el}
-      className={"map-canvas " + (picking ? "picking" : "")}
+      className="map-canvas"
       role="region"
       aria-label={labels.aria}
     />

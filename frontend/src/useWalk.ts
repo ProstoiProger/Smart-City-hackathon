@@ -57,6 +57,13 @@ export function useWalk() {
   const serial = useRef(0);
   const searchAbort = useRef<AbortController | null>(null);
 
+  // Notices (not errors) are hints; they leave on their own instead of covering the card.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const message = (e: unknown, fallbackKey: string) => (e instanceof Error && e.message ? e.message : t(fallbackKey));
 
   const ctx = () => ({

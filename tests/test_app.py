@@ -594,3 +594,210 @@ def test_page_is_revalidated_and_bundles_are_immutable(client):
 
     bundle = _re.search(r"/assets/index-[\w-]+\.js", page.text).group(0)
     assert "immutable" in client.get(bundle).headers["cache-control"]
+
+
+BAYTEREK = {"latitude": 51.1282882, "longitude": 71.4304546}
+
+
+def test_step_free_routes_from_bayterek(client):
+    # The step-free graph has its own main component; snapping to the stepped one
+    # left Bayterek with ~20 reachable nodes and an empty answer.
+    data = client.post(
+        "/api/search",
+        json={"query": "музей", "no_steps": True, "minutes": 90, "when": "2026-10-20T12:00:00", **BAYTEREK},
+    ).json()
+    assert data["items"] and not data["warnings"]
+    assert all(p["route"]["steps_excluded"] for p in data["items"])
+
+
+def test_brief_expo_example_start_budget_and_no_filler_matches(client):
+    data = client.post(
+        "/api/chat",
+        json={
+            "query": "Я у здании Экспо 2017, хочу что-то необычное на 1–2 часа, пешком.",
+            "provider": "offline",
+            "when": "2026-10-20T15:00:00",
+        },
+    ).json()
+    assert data["origin"]["label"] == "EXPO 2017" and data["minutes"] == 120
+    names = [p["display_name"] for p in data["items"]]
+    assert names and not any(n.casefold().startswith("хочу") for n in names)
+    assert "Территория EXPO" not in names  # the place the user is at is not a suggestion
+    assert all(p["route"] and p["total_duration_min"] <= 120 for p in data["items"])
+    labels = {c["label"]: c["value"] for c in data["considered"]}
+    assert labels["Старт"].startswith("EXPO 2017") and "1–2 часа" in labels["Время"]
+
+
+def test_place_mentions_have_roles():
+    from backend.app import city
+
+    def roles(text):
+        return [(m["label"], m["role"]) for m in city.mentions(text)]
+
+    assert roles("Хочу сходить в Хан Шатыр") == [("Хан Шатыр", "destination")]
+    assert roles("Я в Хан Шатыре, где поесть?") == [("Хан Шатыр", "origin")]
+    assert roles("кафе у Хан Шатыра") == [("Хан Шатыр", "origin")]
+    assert roles("Хан Шатыр жанындамын") == [("Хан Шатыр", "origin")]
+    assert roles("Маршрут на 2 часа от Байтерека") == [("Bayterek", "origin")]
+    assert roles("Я сейчас возле Mega Silk Way") == [("MEGA Silk Way", "origin")]
+    # Plain words that happen to be venue names are not mentions.
+    assert roles("Я - турист, у меня 2 часа") == []
+    assert roles("Тихое кафе с розеткой") == []
+
+
+def test_named_destination_keeps_the_map_start(client):
+    data = client.post(
+        "/api/chat",
+        json={"query": "Хочу сходить в Хан Шатыр", "provider": "offline", "when": "2026-10-20T15:00:00", **BAYTEREK},
+    ).json()
+    assert data["origin"]["latitude"] == BAYTEREK["latitude"] and data["origin"]["label"] is None
+    assert [p["display_name"] for p in data["items"]] == ["Хан Шатыр"]
+    assert data["items"][0]["route"]["duration_min"] > 10
+    assert any(c["label"] == "Место из запроса" for c in data["considered"])
+
+
+def test_show_at_the_destination_is_listed_even_when_too_far_to_walk_in_time(client):
+    data = client.post(
+        "/api/chat",
+        json={"query": "Идём в Столичный цирк", "provider": "offline", "when": "2026-10-24T15:30:00", **BAYTEREK},
+    ).json()
+    assert [p["display_name"] for p in data["items"]] == ["Столичный цирк"]
+    show = data["events"][0]
+    assert show["venue_poi_id"] == data["items"][0]["poi_id"] and show["start"].startswith("2026-10-24T16:00")
+    assert show["late"] is True and "пешком не успеть" in data["answer"]
+
+
+def test_budget_and_time_of_day_from_text():
+    from backend.hours import parse_when
+    from backend.query import parse_budget, parse_time_of_day
+
+    budgets = {
+        "хочу прогуляться 30–60 минут": 60,
+        "на 1–2 часа": 120,
+        "Где погулять за полчаса?": 30,
+        "полтора часа свободно": 90,
+        "час-полтора": 90,
+        "последние пару часов": 120,
+        "погулять за час": 60,
+        "90 минут": 90,
+        "2 часа до вылета": 120,
+        "тихое кафе": None,
+    }
+    for text, minutes in budgets.items():
+        assert parse_budget(text)[0] == minutes, text
+    afternoon = parse_when("2026-10-20T15:00:00")
+    assert parse_time_of_day("куда сходить вечером", afternoon)[0] == "2026-10-20T18:00:00"
+    assert parse_time_of_day("ночью", afternoon)[0] == "2026-10-20T22:00:00"
+    assert parse_time_of_day("утром", afternoon)[0] == "2026-10-21T07:00:00"
+    assert parse_time_of_day("завтра вечером", afternoon)[0] == "2026-10-21T18:00:00"
+    late = parse_when("2026-10-20T23:00:00")
+    assert parse_time_of_day("что-нибудь вечером", late) == (None, "сейчас — вечер")
+    assert parse_time_of_day("кафе", afternoon) == (None, None)
+
+
+def test_night_word_moves_the_walk_to_night_when_time_is_not_set(client, monkeypatch):
+    from backend import app as app_module
+
+    monkeypatch.setattr(
+        app_module, "parse_time_of_day", lambda text: ("2026-10-20T22:00:00", "сегодня с 22:00 (из текста: ночью)")
+    )
+    data = client.post(
+        "/api/chat", json={"query": "Ищу необычную ночную активность", "provider": "offline", **BAYTEREK}
+    ).json()
+    assert data["when"] == "2026-10-20T22:00:00"
+    assert {c["label"]: c["value"] for c in data["considered"]}["Когда"].startswith("сегодня с 22:00")
+    assert data["items"] and all(p["category"] in ("nightlife", "entertainment") for p in data["items"])
+
+
+def test_nearby_limits_the_walk(client):
+    data = client.post(
+        "/api/chat",
+        json={"query": "кафе рядом со мной", "provider": "offline", "when": "2026-10-20T12:00:00", **BAYTEREK},
+    ).json()
+    assert data["items"] and all(p["route"]["duration_min"] <= 25 for p in data["items"])
+    assert any(c["label"] == "Пешком до места" for c in data["considered"])
+
+
+def test_walk_requests_from_the_brief_build_routes(client):
+    mega = client.post(
+        "/api/chat",
+        json={
+            "query": "Я сейчас возле Mega Silk Way, хочу прогуляться 30–60 минут — что посоветуете?",
+            "provider": "offline",
+            "when": "2026-10-20T15:00:00",
+        },
+    ).json()
+    assert mega["origin"]["label"] == "MEGA Silk Way" and mega["minutes"] == 60
+    assert mega["mini_route"] and mega["mini_route"]["total_duration_min"] <= 60
+    both = client.post(
+        "/api/chat",
+        json={"query": "Маршрут на 2 часа от Байтерека: музей и кофе", "provider": "offline", "when": "2026-10-20T12:00:00"},
+    ).json()
+    route = both["mini_route"]
+    assert route and route["covers_requested"] and route["total_duration_min"] <= 120
+    assert {"culture", "food_drink"} <= {s["category"] for s in route["stops"]}
+    assert any(c["label"] == "Ищу вместе" for c in both["considered"])
+
+
+def test_offline_answers_still_explain_why_and_what_to_do(client):
+    for query, marker in (("Тихое кафе", "мин пешком"), ("Where can I get coffee?", "min on foot")):
+        data = client.post(
+            "/api/chat",
+            json={"query": query, "provider": "offline", "when": "2026-10-20T12:00:00", **BAYTEREK},
+        ).json()
+        assert data["items"]
+        for p in data["items"]:
+            assert p["why"] and marker in p["why"] and p["what_to_do"]
+            assert p["explanation"]["generated"] is False and p["explanation"]["template"] is True
+            assert "place_data" in p["explanation"]["basis"]
+
+
+def test_considered_lists_what_the_answer_used(client):
+    data = client.post(
+        "/api/chat",
+        json={
+            "query": "кафе с розеткой",
+            "provider": "offline",
+            "when": "2026-10-20T12:00:00",
+            "open_only": True,
+            "no_steps": True,
+            "group_size": 3,
+            **BAYTEREK,
+        },
+    ).json()
+    labels = {c["label"]: c["value"] for c in data["considered"]}
+    assert labels["Старт"] and labels["Время"].startswith("90 мин") and labels["Когда"] == "из условий прогулки"
+    assert "розетки" in labels["Удобства из запроса"] and labels["Компания"] == "3 чел."
+    assert "только открытые по расписанию" in labels["Фильтры"] and "без лестниц" in labels["Фильтры"]
+
+
+def test_photo_endpoint_checks_2gis_main_photo_only_on_request(client, monkeypatch):
+    from backend import photos
+
+    photos._cache.clear()
+    probed = []
+
+    def fake_probe(branch, http):
+        probed.append(branch)
+        return photos.CDN.format(shard=int(branch) % 10, branch=branch) if branch == "70000001026995330" else None
+
+    monkeypatch.setattr(photos, "_probe", fake_probe)
+    mega = client.get("/api/pois/osm:way:499328514/photo").json()
+    assert mega["available"] and mega["url"].endswith("/main/branch/68/70000001026995330/common")
+    assert mega["source"] == "2ГИС" and mega["source_url"] == "https://2gis.kz/astana/firm/70000001026995330"
+    client.get("/api/pois/osm:way:499328514/photo")
+    assert probed == ["70000001026995330"]  # cached: one CDN check per place
+    assert client.get("/api/pois/official:astana_airport/photo").json() == {"available": False, "reason": "no_2gis_branch"}
+    assert client.get("/api/pois/dgis:70000001104256806/photo").json()["reason"] == "no_photo"
+    assert client.get("/api/pois/nope/photo").status_code == 404
+    # The card itself still resolves through the catch-all route.
+    assert client.get("/api/pois/osm:way:499328514").json()["display_name"]
+
+    def broken(branch, http):
+        import httpx
+
+        raise httpx.ConnectError("offline")
+
+    photos._cache.clear()
+    monkeypatch.setattr(photos, "_probe", broken)
+    assert client.get("/api/pois/osm:way:499328514/photo").json() == {"available": False, "reason": "unavailable"}
