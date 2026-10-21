@@ -3,6 +3,8 @@ import {
   request,
   type ChatResponse,
   type EventRecord,
+  type TourDetail,
+  type GroupMember,
   type Meta,
   type Plan,
   type Poi,
@@ -37,6 +39,8 @@ export function useWalk() {
   const [snapRadius, setSnapRadius] = useState(150);
   const [strict, setStrict] = useState(false);
   const [groupSize, setGroupSize] = useState(1);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [tour, setTour] = useState<{ detail: TourDetail; current: number } | null>(null);
   const [airportTransfer, setAirportTransfer] = useState("");
   const [airportReserve, setAirportReserve] = useState("");
   const [provider, setProvider] = useState<Provider>("offline");
@@ -133,6 +137,7 @@ export function useWalk() {
         strict_amenities: strict,
         // Unchecked: the server still builds a route when the request asks for a walk.
         mini_route: miniRoute ? true : null,
+        members: members.length >= 2 ? members : undefined,
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
       setItems(data.items);
@@ -248,8 +253,9 @@ export function useWalk() {
       openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict, groupSize, setGroupSize,
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
-    chat: { messages, miniRoute, setMiniRoute, ask },
+    chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
     afishaState: { afisha, setAfisha, openAfisha },
+    tour, setTour,
     search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };
 }

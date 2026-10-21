@@ -4,26 +4,88 @@ import { eventWhen, groupCost, itemTiming } from "../lib/format";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
+import { canListen, canSpeak, speak, stopSpeaking, useDictation, warmUpVoices } from "../lib/voice";
 import type { Walk } from "../useWalk";
 import { Explanation } from "./Explanation";
+import { GroupFitList, GroupPanel } from "./GroupPanel";
+import { ComfortNote, WhyNot } from "./Insights";
 
 const SUGGESTIONS = ["chat.s1", "chat.s2", "chat.s3"];
+const VOICE_ERRORS = { denied: "chat.voiceDenied", "no-speech": "chat.voiceNoSpeech", failed: "chat.voiceFailed" } as const;
+
+function useSpokenReplies(): [boolean, (v: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem("spokenReplies") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const set = (v: boolean) => {
+    setOn(v);
+    try {
+      localStorage.setItem("spokenReplies", v ? "1" : "0");
+    } catch {
+      // Preference is kept for this session only.
+    }
+  };
+  return [on, set];
+}
 
 export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) {
   const t = useT();
   const { lang } = usePrefs();
-  const { messages, miniRoute, setMiniRoute, ask } = walk.chat;
+  const { messages, miniRoute, setMiniRoute, ask, members, setMembers } = walk.chat;
   const [text, setText] = useState("");
+  const [spoken, setSpoken] = useSpokenReplies();
   const end = useRef<HTMLDivElement>(null);
+  const draft = useRef("");
+  const voiceTurn = useRef(false);
+  const lastSpoken = useRef(0);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [messages]);
 
-  const send = (value: string) => {
+  const send = (value: string, byVoice = false) => {
     if (!value.trim() || walk.busy) return;
+    stopSpeaking();
+    voiceTurn.current = byVoice;
     setText("");
     ask(value);
+  };
+
+  const mic = useDictation(
+    lang,
+    (heard) => setText(draft.current ? draft.current + " " + heard : heard),
+    (heard) => send(draft.current ? draft.current + " " + heard : heard, true),
+  );
+  const micOn = canListen();
+
+  useEffect(() => {
+    warmUpVoices();
+    return stopSpeaking;
+  }, []);
+
+  // A reply to a spoken question is read aloud; typed questions stay silent.
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || last.id === lastSpoken.current) return;
+    lastSpoken.current = last.id;
+    if (voiceTurn.current && spoken) speak(last.text, lang);
+    voiceTurn.current = false;
+  }, [messages, spoken, lang]);
+
+  const toggleMic = () => {
+    if (mic.listening) return mic.stop();
+    stopSpeaking();
+    draft.current = text.trim();
+    mic.start();
+  };
+
+  const toggleSpoken = () => {
+    if (spoken) stopSpeaking();
+    setSpoken(!spoken);
   };
 
   return (
@@ -84,6 +146,7 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
                 </dl>
               </div>
             )}
+            {m.data && <ComfortNote data={m.data} />}
             {m.data?.warnings.map((w) => (
               <p className="warning" key={w}>
                 {w}
@@ -121,6 +184,12 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
                 {!m.data?.mini_route && <span className="route-meta">{itemTiming(p, t)}</span>}
                 <strong>{p.display_name}</strong>
                 <Explanation p={p} />
+                {!!p.group_fit?.length && <GroupFitList fit={p.group_fit} />}
+                {p.comfort && (
+                  <small className={"comfort-tag " + p.comfort}>
+                    <Icon name={p.comfort === "indoor" ? "check" : "cloud-sun"} /> {t("comfort." + p.comfort + "Note")}
+                  </small>
+                )}
                 {p.events?.map((e) => (
                   <span key={e.event_id} className="event-meta">
                     <Icon name="calendar-clock" /> {t("events.here", { name: e.name, when: eventWhen(e, t) })}
@@ -163,6 +232,7 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
                 <small>{t("events.note")}</small>
               </div>
             )}
+            {m.data && <WhyNot data={m.data} />}
             {m.data && (
               <details className="trace">
                 <summary>{t("chat.trace")}</summary>
@@ -185,6 +255,12 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
         )}
         <div ref={end} />
       </div>
+      <GroupPanel
+        members={members}
+        setMembers={setMembers}
+        busy={walk.busy}
+        onGo={() => ask(text.trim() || t("group.defaultQuery"))}
+      />
       <label className="check route-toggle" title={t("chat.miniRouteHint")}>
         <input type="checkbox" checked={miniRoute} onChange={(e) => setMiniRoute(e.target.checked)} />
         <Icon name="route" />
@@ -215,11 +291,46 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
           maxLength={1500}
           rows={2}
         />
+        {micOn && (
+          <button
+            type="button"
+            className={"voice-btn icon-button" + (mic.listening ? " listening" : "")}
+            aria-pressed={mic.listening}
+            aria-label={mic.listening ? t("chat.voiceStop") : t("chat.voiceStart")}
+            title={mic.listening ? t("chat.voiceStop") : t("chat.voiceStart")}
+            disabled={walk.busy}
+            onClick={toggleMic}
+          >
+            <Icon name="mic" />
+          </button>
+        )}
         <button className="primary icon-button" disabled={walk.busy || !text.trim()} aria-label={t("chat.send")}>
           <Icon name="send-horizontal" />
         </button>
       </form>
-      <p className="privacy">{t("chat.privacy")}</p>
+      {(micOn || canSpeak()) && (
+        <div className="voice-bar">
+          <p className={"voice-status" + (mic.error ? " error" : "")} role="status">
+            {mic.listening ? t("chat.listening") : mic.error ? t(VOICE_ERRORS[mic.error]) : ""}
+          </p>
+          {micOn && canSpeak() && (
+            <button
+              type="button"
+              className="voice-speak icon-button"
+              aria-pressed={spoken}
+              aria-label={spoken ? t("chat.speakOn") : t("chat.speakOff")}
+              title={spoken ? t("chat.speakOn") : t("chat.speakOff")}
+              onClick={toggleSpoken}
+            >
+              <Icon name={spoken ? "volume-2" : "volume-x"} />
+            </button>
+          )}
+        </div>
+      )}
+      <p className="privacy">
+        {t("chat.privacy")}
+        {micOn ? " " + t("chat.voicePrivacy") : ""}
+      </p>
     </aside>
   );
 }

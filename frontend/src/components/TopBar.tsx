@@ -1,4 +1,5 @@
 import type { Meta, Weather } from "../api";
+import { comfortLabel } from "../lib/format";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
@@ -13,7 +14,19 @@ function weatherIcon(code?: number | null): string {
   return "cloud";
 }
 
-export function TopBar({ meta, weather, onAfisha }: { meta?: Meta; weather?: Weather; onAfisha: () => void }) {
+export function TopBar({
+  meta,
+  weather,
+  onAfisha,
+  onTours,
+  onCity,
+}: {
+  meta?: Meta;
+  weather?: Weather;
+  onAfisha: () => void;
+  onTours: () => void;
+  onCity: () => void;
+}) {
   const t = useT();
   const { theme, toggleTheme, lang, setLang } = usePrefs();
   return (
@@ -38,7 +51,13 @@ export function TopBar({ meta, weather, onAfisha }: { meta?: Meta; weather?: Wea
             href={weather.source_url}
             target="_blank"
             rel="noreferrer"
-            title={`${weather.note ?? ""} ${t("weather.source", { at: weather.valid_at ?? "" })}`}
+            title={[
+              weather.note,
+              t("weather.source", { at: weather.valid_at ?? "" }),
+              ...(weather.comfort?.factors ?? []).map((f) => comfortLabel(f, t)),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
             aria-label={t("weather.now", { t: weather.temperature_c ?? "", w: weather.wind_kmh ?? "" })}
           >
             <Icon name={weatherIcon(weather.weather_code)} />
@@ -47,6 +66,11 @@ export function TopBar({ meta, weather, onAfisha }: { meta?: Meta; weather?: Wea
               <Icon name="wind" />
               {t("weather.wind", { w: Math.round(weather.wind_kmh ?? 0) })}
             </span>
+            {weather.air?.available && weather.air.aqi != null && (
+              <span className="stat-sub" title={t("comfort.source")}>
+                {t("weather.air", { n: Math.round(weather.air.aqi) })}
+              </span>
+            )}
           </a>
         ) : (
           <span className="stat weather">
@@ -56,6 +80,14 @@ export function TopBar({ meta, weather, onAfisha }: { meta?: Meta; weather?: Wea
         )}
       </div>
       <div className="topbar-actions">
+        <button className="afisha-button icon-button" onClick={onCity}>
+          <Icon name="chart-bar" />
+          <span className="label">{t("top.gaps")}</span>
+        </button>
+        <button className="afisha-button icon-button" onClick={onTours}>
+          <Icon name="footprints" />
+          <span className="label">{t("top.tours")}</span>
+        </button>
         <button className="afisha-button icon-button" onClick={onAfisha}>
           <Icon name="calendar-clock" />
           <span className="label">{t("top.afisha")}</span>

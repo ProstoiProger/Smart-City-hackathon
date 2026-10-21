@@ -11,11 +11,11 @@ export function MapPanel({ walk }: { walk: Walk }) {
   const { theme } = usePrefs();
   const [tileError, setTileError] = useState(false);
   const { items, selected, plan, filters } = walk;
-  const routes = plan?.legs || (selected?.route ? [selected.route] : []);
+  const routes = walk.tour ? [] : plan?.legs || (selected?.route ? [selected.route] : []);
   return (
     <section className="map-panel" aria-label={t("nav.map")}>
       <CityMap
-        items={items}
+        items={walk.tour ? [] : items}
         selected={selected}
         origin={filters.origin}
         routes={routes}
@@ -25,6 +25,8 @@ export function MapPanel({ walk }: { walk: Walk }) {
         onTileError={() => setTileError(true)}
         labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originName }}
         theme={theme}
+        tour={walk.tour}
+        onTourStop={(i) => walk.tour && walk.setTour({ ...walk.tour, current: i })}
       />
       <div className="map-top">
         <span className="map-label">

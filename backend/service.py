@@ -7,6 +7,7 @@ import numpy as np
 from .settings import DATA
 from .index import SearchIndex
 from .routing import MAX_SNAP_M, Router, meters
+from .comfort import exposure
 from .hours import closure, hours_status, parse_when
 from .query import STOP_WORDS, content_query, fold, mention_role, tokens
 
@@ -58,6 +59,29 @@ GENERIC_NAMES = {
 }
 
 
+def read_jsonl(path):
+    if not path.exists():
+        return []
+    with path.open(encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def event_key(e):
+    """Same show listed twice (snapshot and live collection): same title on the same day."""
+    return (name_key(e.get("event_name") or ""), str(e.get("event_start") or "")[:10])
+
+
+LIVE_EVENTS_FILE = "events_live.jsonl"
+
+
+def load_events():
+    """(all events, live-collected ones, snapshot size): newer live records take over from the snapshot."""
+    snapshot = read_jsonl(DATA / "events.jsonl")
+    live = read_jsonl(DATA / LIVE_EVENTS_FILE)
+    seen = {event_key(e) for e in live}
+    return [e for e in snapshot if event_key(e) not in seen] + live, live, len(snapshot)
+
+
 def name_key(text):
     return " ".join(t for t, _, _ in tokens(text))
 
@@ -82,6 +106,18 @@ def read_intents(q):
     if "laptop_work" in wanted and not preferred:
         preferred.update(["food_drink", "quiet_spaces"])
     return preferred, wanted
+def weather_widened(preferred, comfort, category):
+    """In bad weather a plain walk request ("прогулка", "парк") also considers museums and galleries."""
+    return bool(
+        comfort
+        and comfort.get("applies")
+        and comfort["score_level"] >= 1
+        and not category
+        and preferred
+        and preferred <= {"nature", "sightseeing"}
+    )
+
+
 DEFAULT_STAY = {
     "food_drink": 35,
     "nature": 25,
@@ -318,12 +354,7 @@ class City:
         self.landmarks = json.loads(
             (DATA / "landmarks.json").read_text(encoding="utf-8")
         )
-        events_path = DATA / "events.jsonl"
-        self.events = (
-            [json.loads(l) for l in events_path.open(encoding="utf-8")]
-            if events_path.exists()
-            else []
-        )
+        self.events, self.events_live, self.events_snapshot = load_events()
 
     def public(self, p, when=None, stay=0):
         out = {k: p.get(k) for k in VISIBLE}
@@ -431,6 +462,8 @@ class City:
         max_snap_m=MAX_SNAP_M,
         group_size=None,
         max_walk_min=None,
+        comfort=None,
+        trace=None,
     ):
         # Lexical scores ignore filler words: "хочу" must not find "Хочу хинкали".
         if q.strip() and not tokens(q):
@@ -441,6 +474,8 @@ class City:
         group = group_size if group_size and group_size >= 3 else None
         query = q.casefold()
         preferred, wanted = read_intents(q)
+        if weather_widened(preferred, comfort, category):
+            preferred = preferred | {"culture"}
         child_room = bool(
             re.search(
                 r"детск.{0,8}(?:комнат|угол|меню)|балалар.{0,10}(?:бөлме|мәзір)", query
@@ -485,19 +520,6 @@ class City:
                 for need in family_requirements
             )
             signals = (self.review_signals.get(p["poi_id"]) or {}).get("signals")
-            if strict_amenities and (
-                any(
-                    evidence(p, a, signals)[0] not in ("confirmed", "supported")
-                    for a in strict_attrs
-                )
-                or (child_room and not family_matches)
-            ):
-                continue
-            if (
-                origin
-                and meters(origin, (p["latitude"], p["longitude"])) > min(minutes, max_walk_min or minutes) * 75
-            ):
-                continue
             score = float(scores[i])
             if q and any(
                 name_key(q) == name_key(a.split(",")[0])
@@ -521,6 +543,16 @@ class City:
                 if p.get("category") not in preferred and p["poi_id"] not in named:
                     continue
                 score += 0.3
+            if strict_amenities:
+                missing = [
+                    a for a in strict_attrs if evidence(p, a, signals)[0] not in ("confirmed", "supported")
+                ]
+                if missing or (child_room and not family_matches):
+                    if trace is not None:
+                        trace.reject(p, "amenity_unconfirmed", score, attrs=[ATTR_LABEL[a] for a in missing])
+                    continue
+            if trace is not None:
+                trace.count("matched")
             for a in wanted:
                 kind, _ = evidence(p, a, signals)
                 score += 0.3 if kind == "confirmed" else REVIEW_BOOST.get(kind, 0.0)
@@ -535,7 +567,21 @@ class City:
                     score += 0.15
                 if p.get("category") == "quiet_spaces":
                     score -= 0.2
+            where = exposure(p)
+            if comfort and comfort.get("applies"):
+                if where == "outdoor":
+                    score -= comfort["outdoor_penalty"]
+                elif where == "indoor":
+                    score += comfort["indoor_bonus"]
+            if origin:
+                straight = meters(origin, (p["latitude"], p["longitude"]))
+                if straight > min(minutes, max_walk_min or minutes) * 75:
+                    if trace is not None:
+                        trace.reject(p, "too_far", score, straight, km=round(straight / 1000, 1))
+                    continue
             results.append((score, p))
+            if trace is not None:
+                trace.count("nearby")
         results.sort(key=lambda t: t[0], reverse=True)
         if origin:
             # Route the candidates most likely to fit first: with a large budget the
@@ -556,9 +602,13 @@ class City:
                 else None
             )
             if origin and not route:
+                if trace is not None:
+                    trace.reject(p, "no_route", score)
                 continue
             travel = route["duration_min"] if route else 0
             if max_walk_min and travel > max_walk_min:
+                if trace is not None:
+                    trace.reject(p, "walk_limit", score, walk=round(travel), limit=max_walk_min)
                 continue  # "рядом": the walk itself is limited, not only the whole budget
             full_stay = p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(
                 p.get("category"), 30
@@ -566,22 +616,34 @@ class City:
             # A tight budget allows a shorter visit instead of dropping the place.
             min_stay = min(full_stay, MIN_STAY.get(p.get("category"), 15))
             if travel + min_stay > minutes:
+                if trace is not None:
+                    trace.reject(p, "no_time", score, walk=round(travel), visit=min_stay, budget=minutes)
                 continue
+            if trace is not None:
+                trace.count("reachable")
             stay = min(full_stay, math.floor(minutes - travel))
             arrival = dt + timedelta(minutes=travel)
             status = hours_status(p, arrival, stay)
             if status["status"] == "closed_by_schedule":
+                if trace is not None:
+                    trace.reject(p, "closed_at_arrival", score, at=arrival.strftime("%H:%M"))
                 continue
             if open_only and status["status"] != "open_by_schedule":
+                if trace is not None:
+                    trace.reject(p, "hours_unknown", score)
                 continue
+            if trace is not None:
+                trace.count("open")
             obj = self.public(p, arrival, stay)
             obj["suggested_visit_duration_min"] = stay
             obj["typical_visit_min"] = full_stay
             # Full visits rank above shortened ones; a long walk costs more than it used
             # to (0.08): a 90-minute walk to an equally good place is not a recommendation.
+            travel_weight = comfort["travel_weight"] if comfort and comfort.get("applies") else 1.0
             obj["search_score"] = round(
-                score - (travel / minutes) * 0.2 - 0.15 * (1 - stay / full_stay), 4
+                score - (travel / minutes) * 0.2 * travel_weight - 0.15 * (1 - stay / full_stay), 4
             )
+            obj["exposure"] = exposure(p)
             obj["route"] = route
             obj["total_duration_min"] = round(travel + stay, 1)
             obj["reasons"] = (
@@ -668,6 +730,8 @@ class City:
                 obj["warnings"].append(
                     "Тишина упомянута в отдельном отзыве; обстановка не измерена и не гарантирована."
                 )
+            if comfort and comfort.get("applies") and comfort["score_level"] >= 1 and obj["exposure"] != "mixed":
+                obj["comfort"] = obj["exposure"]
             if status["status"] == "unknown":
                 obj["warnings"].append("Перед посещением уточните часы работы")
             if route:
@@ -678,6 +742,7 @@ class City:
         out.sort(key=lambda p: p["search_score"], reverse=True)
         diverse = []
         seen = set()
+        shown_as = {}
         for item in out:
             group = self.byid[item["poi_id"]].get(
                 "recommendation_diversity_group", item["poi_id"]
@@ -685,8 +750,16 @@ class City:
             # Chat recommendations show one branch per chain name; the list keeps all.
             name = item["display_name"].casefold() if distinct_names else None
             if group in seen or (name and name in seen):
+                other = shown_as.get(group) or shown_as.get(name) or ""
+                # Another branch of the same chain is not a different place worth explaining.
+                if trace is not None and other and other.casefold() != item["display_name"].split(",")[0].casefold():
+                    trace.reject(self.byid[item["poi_id"]], "similar_shown", item["search_score"], other=other)
                 continue
             seen.update([group, name] if name else [group])
+            label = item["display_name"].split(",")[0]
+            shown_as[group] = label
+            if name:
+                shown_as[name] = label
             diverse.append(item)
         return diverse[:limit]
 
