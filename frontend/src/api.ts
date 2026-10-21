@@ -266,6 +266,8 @@ export interface Weather {
 }
 export interface ChatResponse {
   answer: string;
+  /** Short summary for text-to-speech and screen-reader users. */
+  spoken?: string;
   items: Poi[];
   warnings: string[];
   provider_used: Provider;

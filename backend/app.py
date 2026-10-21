@@ -4,14 +4,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 from .settings import DATA, ROOT, setting
 from .hours import closure, parse_when
 from .service import ATTR_LABEL, City, LABELS, read_intents, weather_widened
 from .routing import MAX_ALLOWED_SNAP_M, MAX_SNAP_M, MIN_SNAP_M, meters
-from .providers import PROVIDERS, explain_from_data, select, configured
+from .providers import PROVIDERS, compass, explain_from_data, select_spoken, spoken_from_data, configured
 from .query import (
     NEARBY_RELAXED_MIN,
     NEARBY_WALK_MIN,
@@ -30,6 +30,7 @@ from .explain import Trace
 from . import cityaudit, placeqa, tours as tour_data
 from .group import MAX_MEMBERS, MIN_MEMBERS, clean_members, group_pool
 from .photos import main_photo
+from . import tts
 
 city = None
 tours = None
@@ -200,7 +201,25 @@ def meta():
             "max": MAX_ALLOWED_SNAP_M,
         },
         "source_pois": 7570,
+        # Server voice; without it the browser's own speech synthesis is used.
+        "tts": {"provider": "elevenlabs" if tts.configured() else None},
     }
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    lang: Literal["ru", "kk", "en"] = "ru"
+
+
+@app.post("/api/tts")
+def text_to_speech(req: TTSRequest):
+    """MP3 of the text via ElevenLabs; 503 tells the client to use the browser voice."""
+    try:
+        audio = tts.synthesize(req.text, req.lang)
+    except tts.TTSError as exc:
+        # Messages are composed in tts.py and never carry the key or provider bodies.
+        raise HTTPException(503, str(exc)) from None
+    return Response(content=audio, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @app.get("/api/weather")
@@ -582,7 +601,10 @@ def chat(req: ChatRequest):
             }
             for i, (s, leg) in enumerate(zip(route["stops"], route["legs"]))
         ]
-    picks, summary, warning = select(provider, req.query, candidates, context)
+    # Which way each place lies from the start: spoken summaries need it more than a map line.
+    for c in candidates:
+        c["direction"] = compass(origin, (c.get("latitude"), c.get("longitude")), lang) if origin else None
+    picks, summary, warning, spoken_ai = select_spoken(provider, req.query, candidates, context)
     byid = {p["poi_id"]: p for p in candidates}
     if route:
         # The answer follows the route order; stops the model skipped get data-based text.
@@ -618,6 +640,8 @@ def chat(req: ChatRequest):
         }
         selected.append(item)
     generated = any(p["generated"] for p in picks)
+    # Short text for TTS / screen-reader users: the model's summary, or one built from the data.
+    spoken = spoken_ai if generated and spoken_ai else spoken_from_data(selected, lang, route, origin)
     chosen = {p["poi_id"] for p in selected}
     for item in pool[:9]:
         if item["poi_id"] in chosen:
@@ -768,6 +792,7 @@ def chat(req: ChatRequest):
         )
     return {
         "answer": text,
+        "spoken": spoken,
         "items": selected,
         "provider_requested": provider,
         "provider_used": provider if generated else "offline",

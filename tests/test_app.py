@@ -812,3 +812,37 @@ def test_photo_endpoint_checks_2gis_main_photo_only_on_request(client, monkeypat
     photos._cache.clear()
     monkeypatch.setattr(photos, "_probe", broken)
     assert client.get("/api/pois/osm:way:499328514/photo").json() == {"available": False, "reason": "unavailable"}
+
+
+def test_short_spoken_summary_for_voice_and_screen_reader_users(client, monkeypatch):
+    base = {"query": "Где поблизости можно поесть?", "when": "2026-10-22T13:00:00", **BAYTEREK}
+    data = client.post("/api/chat", json={**base, "provider": "offline"}).json()
+    spoken = data["spoken"]
+    assert data["items"] and spoken.startswith(("Нашёл одно", "Нашёл два", "Нашёл три"))
+    first = data["items"][0]["display_name"].split(",")[0]
+    assert first in spoken and "пешком на " in spoken and len(spoken) < 600
+    assert not any(ch in spoken for ch in "*«»()[]")
+    # With Gemini, its own short summary is used (one call, no extra request).
+    monkeypatch.setenv("GEMINI_API_KEY", "test-only-key")
+    pid = data["items"][0]["poi_id"]
+    reply = json.dumps(
+        {
+            "summary": "s",
+            "spoken": "Рядом одно кафе, пять минут пешком на юг.",
+            "recommendations": [{"poi_id": pid, "why": "w", "what_to_do": "d", "basis": []}],
+        },
+        ensure_ascii=False,
+    )
+    monkeypatch.setattr(providers.httpx, "Client", _gemini_client(reply))
+    ai = client.post("/api/chat", json={**base, "provider": "gemini"}).json()
+    assert ai["spoken"] == "Рядом одно кафе, пять минут пешком на юг."
+
+
+def test_compass_direction_words():
+    from backend.providers import compass
+
+    o = (51.1283, 71.4305)
+    assert compass(o, (51.14, 71.4305)) == "на север"
+    assert compass(o, (51.1283, 71.45)) == "на восток"
+    assert compass(o, (51.12, 71.42), "kk") == "оңтүстік-батысқа"
+    assert compass(o, o) is None and compass(None, o) is None

@@ -31,7 +31,8 @@ function recognitionCtor(): RecognitionCtor | undefined {
 }
 
 export const canListen = () => typeof window !== "undefined" && !!recognitionCtor();
-export const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window;
+// Server audio needs only <audio>; the browser voice is the fallback.
+export const canSpeak = () => typeof window !== "undefined" && (typeof Audio !== "undefined" || "speechSynthesis" in window);
 
 export type VoiceError = "denied" | "no-speech" | "failed";
 
@@ -101,14 +102,67 @@ function pickVoice(lang: Lang): { voice?: SpeechSynthesisVoice; tag: string } {
   return ru ? { voice: ru, tag: SPEECH_LANG.ru } : { tag: SPEECH_LANG[lang] };
 }
 
+// The server voice (ElevenLabs via /api/tts) plays through one <audio>; the request
+// in flight can be cancelled when a new phrase starts or the user stops playback.
+let player: HTMLAudioElement | null = null;
+let pending: AbortController | null = null;
+
 export function stopSpeaking() {
-  if (canSpeak()) window.speechSynthesis.cancel();
+  pending?.abort();
+  pending = null;
+  if (player) {
+    player.pause();
+    player.removeAttribute("src");
+    player = null;
+  }
+  if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
 }
 
+/** Speak with the ElevenLabs voice; if the server has no key or the request fails,
+ *  fall back to the browser's own speech synthesis. */
 export function speak(text: string, lang: Lang, onEnd?: () => void) {
-  if (!canSpeak()) return;
   const clean = text.replace(/[*_#`>]+/g, "").replace(/\s+/g, " ").trim();
   if (!clean) return;
+  stopSpeaking();
+  const ctrl = new AbortController();
+  pending = ctrl;
+  fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: clean.slice(0, 5000), lang }),
+    signal: ctrl.signal,
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error("tts " + r.status);
+      return r.blob();
+    })
+    .then((blob) => {
+      if (ctrl.signal.aborted) return;
+      pending = null;
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      player = audio;
+      const done = () => {
+        URL.revokeObjectURL(url);
+        if (player === audio) player = null;
+        onEnd?.();
+      };
+      audio.onended = done;
+      audio.onerror = done;
+      return audio.play();
+    })
+    .catch(() => {
+      if (ctrl.signal.aborted) return;
+      pending = null;
+      browserSpeak(clean, lang, onEnd);
+    });
+}
+
+function browserSpeak(clean: string, lang: Lang, onEnd?: () => void) {
+  if (!("speechSynthesis" in window)) {
+    onEnd?.();
+    return;
+  }
   const synth = window.speechSynthesis;
   synth.cancel();
   const u = new SpeechSynthesisUtterance(clean);
@@ -122,5 +176,5 @@ export function speak(text: string, lang: Lang, onEnd?: () => void) {
 
 /** Voices load asynchronously in Chromium; touching the list early lets the first reply find one. */
 export function warmUpVoices() {
-  if (canSpeak()) window.speechSynthesis.getVoices();
+  if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.getVoices();
 }

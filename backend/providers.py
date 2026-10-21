@@ -7,6 +7,7 @@ deterministic search result is used and labelled as such.
 """
 
 import json
+import math
 import re
 import httpx
 from .query import language
@@ -20,6 +21,7 @@ SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
+        "spoken": {"type": "string"},
         "recommendations": {
             "type": "array",
             "minItems": 1,
@@ -62,6 +64,8 @@ FACT_KEYS = (
     "children_facilities",
     "wheelchair_accessible",
     "entrance_accessible",
+    "ramps",
+    "direction",
     "indoor_outdoor",
     "adult_ticket_price",
     "standard_ticket_price",
@@ -86,6 +90,7 @@ PROMPT = """Ты помощник по прогулкам в Астане. Вы�
 - Если в context есть events, это опубликованные анонсы (не подтверждённые): если событие подходит запросу, назови его, время начала и площадку в why/what_to_do и учти время на дорогу; не обещай, что оно точно состоится.
 - Если в context есть mini_route, это готовый пеший маршрут: рекомендуй ровно эти места в этом порядке. В "why" объясни, почему остановка хороша в маршруте, в "what_to_do" уложи план в visit_min минут этой остановки; в summary назови маршрут целиком.
 - "summary": одно предложение-вступление к подборке.
+- "spoken": короткая выжимка для озвучки незрячему пользователю, 2–4 предложения, не длиннее 450 символов, на языке request. Назови, сколько мест, и для каждого по порядку: название, что там (кухня или тип места по данным), сколько минут пешком и в какую сторону (поле direction), открыто ли по расписанию (если hours_status unknown — «часы не подтверждены»), и есть ли по данным доступный вход или пандус (только если true). Обычные предложения: без списков, скобок, кавычек-ёлочек, эмодзи, ссылок, звёздочек и сокращений вроде «мин»; не придумывай того, чего нет в данных.
 - Язык ответа (summary, why, what_to_do) — язык поля request, даже если данные мест на русском: английский запрос → ответ на английском, казахский → на казахском. Названия мест не переводи. Кратко, без воды.
 """
 
@@ -325,10 +330,16 @@ def _clean(text):
 
 def select(provider, message, candidates, context=None):
     """Return (picks, summary, warning). Picks carry model text only when validated."""
+    picks, summary, warning, _ = select_spoken(provider, message, candidates, context)
+    return picks, summary, warning
+
+
+def select_spoken(provider, message, candidates, context=None):
+    """Like select(), plus the model's short spoken summary (None when not generated)."""
     if provider == "offline" or not candidates:
-        return offline_picks(candidates, message, context), None, None
+        return offline_picks(candidates, message, context), None, None, None
     if not configured(provider):
-        return offline_picks(candidates, message, context), None, "Для Gemini не задан GEMINI_API_KEY. Использован локальный поиск."
+        return offline_picks(candidates, message, context), None, "Для Gemini не задан GEMINI_API_KEY. Использован локальный поиск.", None
     prompt = PROMPT + json.dumps(
         {"request": message, "context": context or {}, "candidates": [_fact(p) for p in candidates]},
         ensure_ascii=False,
@@ -356,10 +367,116 @@ def select(provider, message, candidates, context=None):
                     "generated": True,
                 }
             )
-        return picks, _clean(data.get("summary")), None
+        spoken = re.sub(r"\s+", " ", str(data.get("spoken") or "")).strip()[:600] or None
+        return picks, _clean(data.get("summary")), None, spoken
     except ProviderError as exc:
         # ProviderError messages are composed here and never contain URLs or keys.
-        return offline_picks(candidates, message, context), None, f"{exc}. Рекомендации построены локальным поиском."
+        return offline_picks(candidates, message, context), None, f"{exc}. Рекомендации построены локальным поиском.", None
     except (ValueError, KeyError, TypeError, AttributeError):
         # Never serialize provider exception strings: URLs or headers can contain credentials.
-        return offline_picks(candidates, message, context), None, "Модель не ответила корректно. Рекомендации построены локальным поиском."
+        return offline_picks(candidates, message, context), None, "Модель не ответила корректно. Рекомендации построены локальным поиском.", None
+
+
+# --- Short spoken summary (screen-reader / TTS users) ------------------------------
+
+COMPASS = {
+    "ru": ["на север", "на северо-восток", "на восток", "на юго-восток", "на юг", "на юго-запад", "на запад", "на северо-запад"],
+    "kk": ["солтүстікке", "солтүстік-шығысқа", "шығысқа", "оңтүстік-шығысқа", "оңтүстікке", "оңтүстік-батысқа", "батысқа", "солтүстік-батысқа"],
+    "en": ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"],
+}
+
+
+def compass(origin, point, lang="ru"):
+    """Direction from the start to a place in words ("на северо-восток"); None when unknown."""
+    if not origin or not point or None in (*origin, *point):
+        return None
+    dlat = point[0] - origin[0]
+    dlon = (point[1] - origin[1]) * math.cos(math.radians(origin[0]))
+    if abs(dlat) < 1e-5 and abs(dlon) < 1e-5:
+        return None
+    bearing = (math.degrees(math.atan2(dlon, dlat)) + 360) % 360
+    return COMPASS.get(lang, COMPASS["ru"])[int((bearing + 22.5) // 45) % 8]
+
+
+SPOKEN = {
+    "ru": {
+        "count": {1: "Нашёл одно место.", 2: "Нашёл два места.", 3: "Нашёл три места."},
+        "route": "Маршрут из {n} мест примерно на {m} минут.",
+        "order": ["Первое", "Второе", "Третье"],
+        "route_order": ["Сначала", "Потом", "Затем"],
+        "open": "по расписанию открыто",
+        "unknown": "часы не подтверждены",
+        "access": "по данным источника есть доступный вход",
+        "none": "Подходящих мест не нашёл. Попробуйте изменить время или место старта.",
+    },
+    "kk": {
+        "count": {1: "Бір орын таптым.", 2: "Екі орын таптым.", 3: "Үш орын таптым."},
+        "route": "{n} орыннан тұратын бағыт, шамамен {m} минут.",
+        "order": ["Біріншісі", "Екіншісі", "Үшіншісі"],
+        "route_order": ["Алдымен", "Содан кейін", "Соңында"],
+        "open": "кесте бойынша ашық",
+        "unknown": "жұмыс уақыты расталмаған",
+        "access": "дереккөз бойынша қолжетімді кіреберіс бар",
+        "none": "Қолайлы орын таппадым. Уақытты немесе бастапқы нүктені өзгертіп көріңіз.",
+    },
+    "en": {
+        "count": {1: "I found one place.", 2: "I found two places.", 3: "I found three places."},
+        "route": "A route of {n} places, about {m} minutes.",
+        "order": ["First", "Second", "Third"],
+        "route_order": ["First", "Then", "Finally"],
+        "open": "open by schedule",
+        "unknown": "opening hours not confirmed",
+        "access": "the source lists an accessible entrance",
+        "none": "I found no suitable places. Try another time or start point.",
+    },
+}
+
+
+def _walk_words(n, lang):
+    if lang == "kk":
+        return f"жаяу {n} минут"
+    if lang == "en":
+        return f"{n} minute{'s' if n != 1 else ''} on foot"
+    word = "минута" if n % 10 == 1 and n % 100 != 11 else "минуты" if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else "минут"
+    return f"{n} {word} пешком"
+
+
+def spoken_from_data(items, lang="ru", route=None, origin=None):
+    """Data-only spoken summary: what, how far, which way, open or not, accessible entrance.
+
+    For a mini-route each stop is described from the previous one (leg time and direction).
+    """
+    lang = lang if lang in SPOKEN else "ru"
+    say = SPOKEN[lang]
+    items = list(items)[:3]
+    if not items:
+        return say["none"]
+    head = (
+        say["route"].format(n=len(items), m=round(route["total_duration_min"]))
+        if route
+        else say["count"][len(items)]
+    )
+    parts = [head]
+    order = say["route_order"] if route else say["order"]
+    for i, p in enumerate(items):
+        bits = [str(p.get("display_name") or "").split(",")[0]]
+        kind = p.get("subcategory_label") or CATEGORY[lang].get(p.get("category"))
+        if kind:
+            bits.append(str(kind).lower())
+        walk = (p.get("route") or {}).get("duration_min")
+        direction = p.get("direction")
+        if route and i < len(route.get("legs") or []):
+            walk = route["legs"][i].get("duration_min")
+            prev = origin if i == 0 else (items[i - 1].get("latitude"), items[i - 1].get("longitude"))
+            direction = compass(prev, (p.get("latitude"), p.get("longitude")), lang) or direction
+        if walk is not None:
+            bits.append(_walk_words(max(1, round(walk)), lang) + (f" {direction}" if direction else ""))
+        status = (p.get("hours_status") or {}).get("status")
+        if status == "open_by_schedule":
+            bits.append(say["open"])
+        elif status == "unknown":
+            bits.append(say["unknown"])
+        if p.get("entrance_accessible") is True or p.get("ramps") is True:
+            bits.append(say["access"])
+        parts.append(f"{order[i]} — " + ", ".join(bits) + ".")
+    return " ".join(parts)

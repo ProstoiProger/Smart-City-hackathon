@@ -658,3 +658,22 @@ a.stat:hover {
     animation: none;
   }
 }
+
+/* "Озвучить кратко": large enough to find by touch or screen reader, under each answer. */
+.listen-brief {
+  justify-self: start;
+  align-self: flex-start;
+  margin: 6px 0 4px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-size: var(--fs-body-sm);
+  gap: 6px;
+}
+.listen-brief[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}

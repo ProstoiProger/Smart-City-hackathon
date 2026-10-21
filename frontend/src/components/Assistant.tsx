@@ -42,6 +42,8 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
   const draft = useRef("");
   const voiceTurn = useRef(false);
   const lastSpoken = useRef(0);
+  // Message whose short summary is being read aloud by the "listen" button.
+  const [reading, setReading] = useState<number | null>(null);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -72,7 +74,8 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant" || last.id === lastSpoken.current) return;
     lastSpoken.current = last.id;
-    if (voiceTurn.current && spoken) speak(last.text, lang);
+    // Voice questions get the short spoken summary, not the whole answer with its cards.
+    if (voiceTurn.current && spoken) speak(last.data?.spoken || last.text, lang);
     voiceTurn.current = false;
   }, [messages, spoken, lang]);
 
@@ -131,6 +134,25 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
               {m.role === "user" ? t("chat.you") : t("chat.assistant", { p: m.data?.provider_used || t("chat.searchProvider") })}
             </small>
             <p>{m.text}</p>
+            {m.data?.spoken && canSpeak() && (
+              <button
+                type="button"
+                className="listen-brief icon-button"
+                aria-pressed={reading === m.id}
+                onClick={() => {
+                  if (reading === m.id) {
+                    stopSpeaking();
+                    setReading(null);
+                  } else {
+                    setReading(m.id);
+                    speak(m.data!.spoken!, lang, () => setReading((id) => (id === m.id ? null : id)));
+                  }
+                }}
+              >
+                <Icon name={reading === m.id ? "volume-x" : "volume-2"} />
+                {reading === m.id ? t("chat.listenStop") : t("chat.listen")}
+              </button>
+            )}
             {!!m.data?.considered?.length && (
               <div className="considered">
                 <strong>
