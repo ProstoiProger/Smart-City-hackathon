@@ -36,6 +36,8 @@ CMD ["python", "run.py", "--host", "0.0.0.0", "--port", "8000"]
 FROM app AS dev
 COPY --chown=walker tests/ ./tests/
 COPY --chown=walker scripts/ ./scripts/
+# Tests cover the live-events parser (collector/live_events imports backend.*, not the other way).
+COPY --chown=walker collector/live_events/ ./collector/live_events/
 COPY --chown=walker qa/rag_cases.json ./qa/rag_cases.json
 CMD ["python", "-m", "pytest", "tests", "-q"]
 

@@ -54,6 +54,8 @@ services:
       BASE_URL: http://astana-walk:8000
       PW_CHANNEL: chromium
       CI: "1"
+      # 1 = also refresh the qa/*.png screenshots; off by default so test runs leave git clean.
+      QA_SCREENSHOTS: ${QA_SCREENSHOTS:-0}
     volumes:
       - ./frontend:/e2e/frontend
       - e2e_node_modules:/e2e/frontend/node_modules

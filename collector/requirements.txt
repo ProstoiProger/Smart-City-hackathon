@@ -4,3 +4,4 @@ beautifulsoup4>=4.12
 numpy>=2.0
 scipy>=1.13
 pyarrow>=16
+lxml>=5,<7

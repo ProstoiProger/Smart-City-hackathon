@@ -9,3 +9,6 @@ joblib>=1.3,<2
 pydantic>=2.8,<3
 pytest>=8,<10
 pyyaml>=6,<7
+# Tests import collector/live_events (HTML parsing of event pages).
+beautifulsoup4>=4.12,<5
+lxml>=5,<7

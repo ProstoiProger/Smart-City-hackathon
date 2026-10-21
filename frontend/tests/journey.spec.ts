@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+// QA screenshots for the delivery report: only on request (QA_SCREENSHOTS=1), so a normal
+// test run does not rewrite the tracked qa/*.png files.
+async function qaShot(page: import("@playwright/test").Page, name: string) {
+  if (process.env.QA_SCREENSHOTS === "1") await page.screenshot({ path: `../qa/${name}.png`, fullPage: true });
+}
+
 // Chat checks must not depend on a Gemini key, quota or network: force the local path.
 async function offlineChat(page: import("@playwright/test").Page) {
   await page.route("**/api/chat", (route) =>
@@ -29,7 +35,7 @@ test("explicit subvenue tickets and afisha ticket links", async ({
     .getByText("Опубликованные цены и тарифы", { exact: true })
     .click();
   await expect(page.locator(".detail-sheet")).toContainText(/4[ \u00a0]400/);
-  await page.screenshot({ path: "../qa/price_policy.png", fullPage: true });
+  await qaShot(page, "price_policy");
   await page.getByRole("button", { name: "Афиша", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Афиша Астаны" }),
@@ -60,7 +66,7 @@ test("desktop: actual POIs, route to a place, search and model fallback", async 
   await expect(page.locator(".place-row").first()).toBeVisible();
   await expect(page.locator(".leaflet-marker-icon").first()).toBeVisible();
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: "../qa/desktop.png", fullPage: true });
+  await qaShot(page, "desktop");
   await page.locator(".place-main").first().click();
   await expect(page.locator(".detail-sheet")).toBeVisible();
   // Comparison was removed: no "В сравнение" buttons anywhere.
@@ -94,7 +100,7 @@ test("mobile: map, filters, chat and Kazakh navigation", async ({ page }) => {
   await expect(page.locator(".map-panel")).toBeVisible();
   await expect(page.locator(".map-canvas")).toHaveCSS("height", /\d+px/);
   await page.waitForTimeout(2500);
-  await page.screenshot({ path: "../qa/mobile.png", fullPage: true });
+  await qaShot(page, "mobile");
   await page
     .locator(".mobile-nav")
     .getByRole("button", { name: "Места" })

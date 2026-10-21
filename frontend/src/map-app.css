@@ -533,3 +533,26 @@ a.stat:hover {
 .more-filters details[open] > summary::before {
   content: "−";
 }
+
+/* Phones: five header controls (gaps, walks, afisha, theme, language) must fit 360 px.
+   Keep the logo mark, drop the wordmark, make the section buttons square icons. */
+@media (max-width: 520px) {
+  .topbar {
+    gap: 8px;
+  }
+  .brand-name {
+    display: none;
+  }
+  .topbar-actions {
+    gap: 4px;
+  }
+  .topbar-actions .afisha-button {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .topbar-actions .language button {
+    padding: 0 7px;
+  }
+}
