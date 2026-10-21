@@ -556,3 +556,105 @@ a.stat:hover {
     padding: 0 7px;
   }
 }
+
+/* Place photo: the whole square 2GIS photo over a blurred copy of itself, so food,
+   facades and interiors are never cut to a thin strip. Fades in once loaded. */
+.pc-media {
+  height: 240px;
+  background: #1c1f22;
+  isolation: isolate;
+}
+.pc-media .pc-media-bg {
+  position: absolute;
+  inset: -24px;
+  width: calc(100% + 48px);
+  height: calc(100% + 48px);
+  object-fit: cover;
+  filter: blur(22px) brightness(0.62) saturate(1.15);
+  z-index: -1;
+}
+.pc-media-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.pc-media-open:hover {
+  background: transparent;
+}
+.pc-media .pc-media-img {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(1.02);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.pc-media.loaded .pc-media-img {
+  opacity: 1;
+  transform: none;
+}
+.pc-media-open:hover .pc-media-img {
+  transform: scale(1.015);
+}
+.pc-media::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 56px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+.pc-media figcaption {
+  z-index: 1;
+}
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+  animation: lightbox-in 0.2s ease;
+}
+.photo-lightbox img {
+  max-width: min(92vw, 1440px);
+  max-height: 88vh;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+.photo-lightbox .sheet-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 760px) {
+  .pc-media {
+    height: 200px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-media .pc-media-img {
+    transform: none;
+  }
+  .photo-lightbox {
+    animation: none;
+  }
+}

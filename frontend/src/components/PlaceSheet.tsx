@@ -238,7 +238,19 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
   const { lang } = usePrefs();
   const loc = locale(lang);
   const [photo, dropPhoto] = usePhoto(p.poi_id);
+  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const [zoom, setZoom] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    setPhotoLoaded(false);
+    setZoom(false);
+  }, [p.poi_id]);
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setZoom(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
   const close = (
     <button className="sheet-close" aria-label={t("detail.close")} onClick={() => walk.selectPlace(undefined)}>
       <Icon name="x" />
@@ -248,9 +260,20 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
   return (
     <section className="detail-sheet place-card" aria-label={t("detail.region")}>
       {photo.status !== "none" && (
-        <figure className={"pc-media " + photo.status}>
+        <figure className={"pc-media " + photo.status + (photoLoaded ? " loaded" : "")}>
+          {/* 2GIS main photos are 1440x1440 squares: show the whole photo over a blurred
+              copy of itself instead of cropping a thin band out of it. */}
+          {photo.status === "ok" && <img className="pc-media-bg" src={photo.url} alt="" aria-hidden="true" />}
           {photo.status === "ok" && (
-            <img src={photo.url} alt={t("photo.alt", { name: p.display_name })} loading="lazy" onError={dropPhoto} />
+            <button className="pc-media-open" onClick={() => setZoom(true)} aria-label={t("photo.open")}>
+              <img
+                className="pc-media-img"
+                src={photo.url}
+                alt={t("photo.alt", { name: p.display_name })}
+                onLoad={() => setPhotoLoaded(true)}
+                onError={dropPhoto}
+              />
+            </button>
           )}
           {photo.status === "ok" && (
             <figcaption>
@@ -259,6 +282,14 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
           )}
           {close}
         </figure>
+      )}
+      {zoom && photo.status === "ok" && (
+        <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label={t("photo.alt", { name: p.display_name })} onClick={() => setZoom(false)}>
+          <img src={photo.url} alt={t("photo.alt", { name: p.display_name })} />
+          <button className="sheet-close" aria-label={t("detail.close")} onClick={() => setZoom(false)}>
+            <Icon name="x" />
+          </button>
+        </div>
       )}
       <div className="pc-head">
         <span className="pc-kind">{categoryLabel(p, t)}</span>
