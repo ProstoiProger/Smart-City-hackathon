@@ -179,7 +179,7 @@ def wants_nearby(text):
 # --- several kinds of places in one request ---------------------------------------
 
 COVER = [
-    ("кафе", r"каф|коф|ресторан|поесть|перекус|пообедать|поужинать|тамақ|асхана|cafe|coffee|restaurant|lunch|dinner", "food_drink"),
+    ("кафе", r"каф|коф|ресторан|поесть|покушать|кушать|поужина|пообеда|позавтрака|\bобед|\bужин|\bзавтрак|перекус|\bеда\b|\bеды\b|\bеду\s+(?:вкусн|попробова)|кухн|тамақ|асхана|cafe|coffee|restaurant|\bfood|\beat\b|cuisine|lunch|dinner|breakfast", "food_drink"),
     ("парк", r"парк|сквер|саябақ|\bpark", "nature"),
     ("музей", r"музе|выстав|галере|мұражай|көрме|museum|gallery|exhibit", "culture"),
     ("детям", r"детск\w*\s+площад|реб[её]н|\bдет(?:и|ей|ям|ьми)\b|балалар|баламен|\bkids?\b|children", "children"),
@@ -234,3 +234,35 @@ def mention_role(toks, first, last, suffix=""):
             # "я в Хан Шатыре" is where I am; "сходить в Хан Шатыр" is where I go.
             return "origin" if any(w in SELF for w in before[:i]) else "destination"
     return None
+
+
+# --- flight soon? ----------------------------------------------------------------------
+
+# Words that mean "I have a flight to catch". "Аэропорт" alone is a place ("я в аэропорту,
+# хочу поесть"), so only going *to* the airport counts.
+FLIGHT = re.compile(
+    # \b at the start: "рейс" must not match inside "корейскую".
+    r"\bвылет\w*|\bрейс\w*|\bflights?\b|\bflying\b|\bұш(?:у|амын|атын|ар)\w*|"
+    r"(?:ехать|еду|поехать|выезжать|успеть)\s+в\s+аэропорт\b|в\s+аэропорт\s+через|"
+    r"әуежайға|to\s+the\s+airport",
+    re.I,
+)
+NEGATION_BEFORE = {fold(w) for w in "нет не без никакого никакой ни no not without dont".split()}
+NEGATION_AFTER = {fold(w) for w in "нет не жоқ емес".split()}
+
+
+def wants_flight(text):
+    """True when the request mentions a flight to catch, ignoring negated mentions:
+    "у меня нет вылета", "не лечу", "рейса нет", "no flight", "рейс жоқ"."""
+    text = str(text or "")
+    toks = tokens(text)
+    for m in FLIGHT.finditer(text):
+        idx = [i for i, (_, s, e) in enumerate(toks) if s < m.end() and e > m.start()]
+        if not idx:
+            continue
+        before = [t for t, _, _ in toks[max(0, idx[0] - 2) : idx[0]]]
+        after = [t for t, _, _ in toks[idx[-1] + 1 : idx[-1] + 3]]
+        if any(w in NEGATION_BEFORE for w in before) or any(w in NEGATION_AFTER for w in after):
+            continue
+        return True
+    return False

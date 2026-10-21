@@ -846,3 +846,29 @@ def test_compass_direction_words():
     assert compass(o, (51.1283, 71.45)) == "на восток"
     assert compass(o, (51.12, 71.42), "kk") == "оңтүстік-батысқа"
     assert compass(o, o) is None and compass(None, o) is None
+
+
+def test_flight_mode_only_for_a_real_flight():
+    from backend.query import wants_flight
+
+    assert not wants_flight("У меня нет вылета Я просто хочу покушать корейскую кухню")
+    assert not wants_flight("Хочу корейскую кухню")  # "рейс" inside "корейскую"
+    assert not wants_flight("я в аэропорту, хочу поесть")
+    assert not wants_flight("рейса нет, просто гуляю") and not wants_flight("no flight today")
+    assert not wants_flight("Рейс жоқ, кофе ішкім келеді")
+    assert wants_flight("До вылета 2 часа, где погулять?") and wants_flight("Мой рейс в 18:00")
+    assert wants_flight("через 2 часа ехать в аэропорт") and wants_flight("2 сағаттан кейін ұшамын")
+
+
+def test_korean_food_without_a_flight_is_not_a_flight_answer(client):
+    data = client.post(
+        "/api/chat",
+        json={
+            "query": "У меня нет вылета Я просто хочу покушать корейскую кухню",
+            "provider": "offline",
+            "when": "2026-10-22T13:00:00",
+            **BAYTEREK,
+        },
+    ).json()
+    assert data["flight_context"] is None and "аэропорт" not in data["answer"]
+    assert data["items"] and all(p["category"] == "food_drink" for p in data["items"])

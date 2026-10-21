@@ -28,7 +28,8 @@ LABELS = {
     "other": "Другие места",
 }
 ALIASES = [
-    (r"каф|коф|ресторан|поесть|тамақ|асхана|cafe|coffee", ["food_drink"]),
+    # Food: venues and words for eating ("покушать корейскую кухню"); not "еду" = "I am going".
+    (r"каф|коф|ресторан|поесть|покушать|кушать|поужина|пообеда|позавтрака|\bобед|\bужин|\bзавтрак|перекус|\bеда\b|\bеды\b|\bеду\s+(?:вкусн|попробова)|кухн|тамақ|асхана|cafe|coffee|restaurant|\bfood|\beat\b|cuisine|lunch|dinner|breakfast", ["food_drink"]),
     (r"парк|прогул|погуля|серуен|саябақ|park", ["nature", "sightseeing"]),
     (r"музе|выстав|мұражай|museum", ["culture"]),
     (r"реб[её]н|деть|детск|бала|kids", ["children", "entertainment", "culture"]),

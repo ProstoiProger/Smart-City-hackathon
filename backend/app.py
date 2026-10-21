@@ -22,6 +22,7 @@ from .query import (
     parse_time_of_day,
     tokens,
     wants_nearby,
+    wants_flight,
     without_tokens,
 )
 from .weather import current_weather
@@ -391,7 +392,7 @@ def chat(req: ChatRequest):
     effective_query = without_tokens(req.query, start["tokens"]) if start else req.query
 
     # How long and when.
-    flight = bool(re.search(r"аэропорт|рейс|вылет|flight|әуежай", req.query, re.I))
+    flight = wants_flight(req.query)
     minutes, budget_note = req.minutes, "из условий прогулки"
     parsed, note = parse_budget(req.query, prefer_hours=flight)
     if parsed:
