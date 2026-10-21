@@ -2260,3 +2260,165 @@ tbody th {
   max-height: 50dvh;
   padding: 16px 20px;
 }
+
+/* End of a walk: chosen in the conditions, drawn as a dark pin next to the orange start. */
+.finish-row {
+  display: grid;
+  gap: 4px;
+}
+.finish-row label {
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  font-weight: 600;
+}
+.finish-row small {
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+}
+.finish-pin {
+  background: #1f2a44;
+}
+.finish-chip {
+  border-color: #1f2a44;
+}
+/* Itinerary with a finish and on-the-go re-planning. */
+.itinerary .finish-line {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+  font-weight: 600;
+}
+.itinerary .finish-line.late,
+.mini-route.late {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  border-color: var(--warn-border);
+}
+.trip-history {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.trip-history li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-caption);
+  color: var(--text-2);
+}
+.trip-history li span {
+  text-decoration: line-through;
+}
+.trip-history li.closed {
+  color: var(--warn-fg);
+}
+.trip-history small {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+}
+.itinerary li.next strong {
+  color: var(--link);
+}
+.next-badge {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--fs-micro);
+  font-style: normal;
+  font-weight: 700;
+}
+.itinerary li.finish-stop strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.trip-controls {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.trip-controls > strong {
+  font-size: var(--fs-body-sm);
+}
+.trip-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.trip-buttons button {
+  font-size: var(--fs-caption);
+  padding: 7px 11px;
+}
+.trip-buttons button[aria-pressed="true"] {
+  background: var(--surface-selected);
+  border-color: var(--link);
+}
+.trip-controls small {
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+}
+.trip-note {
+  margin: 0 !important;
+  padding: 8px 10px;
+  border-left: 3px solid var(--link);
+  background: var(--surface-1);
+  font-size: var(--fs-caption) !important;
+}
+
+/* Resizable map sheets: a grab handle on top, sticky while the sheet scrolls. */
+.detail-sheet {
+  padding-top: 0;
+}
+.sheet-handle {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  width: calc(100% + 40px);
+  margin: 0 -20px 6px;
+  padding: 8px 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-1);
+  cursor: ns-resize;
+  touch-action: none;
+}
+.place-card > .sheet-handle {
+  width: 100%;
+  margin: 0;
+}
+.sheet-handle span {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.15s;
+}
+.sheet-handle:hover span,
+.sheet-handle:focus-visible span {
+  background: var(--link);
+}
+.detail-sheet.folded {
+  overflow: hidden;
+}
+@media (max-width: 760px) {
+  .sheet-handle {
+    width: calc(100% + 36px);
+    margin: 0 -18px 6px;
+  }
+}
+/* Folded place card: the name, not a strip of the photo. */
+.place-card.folded > .pc-media {
+  display: none;
+}

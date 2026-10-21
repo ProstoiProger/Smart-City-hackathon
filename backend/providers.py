@@ -89,6 +89,7 @@ PROMPT = """Ты помощник по прогулкам в Астане. Вы�
 - Если в context есть group_members, кандидаты уже упорядочены по компромиссу для всей компании: бери верхние. В why назови, чем место подходит каждому участнику по имени (только по фактам кандидата), и честно скажи, если чьё-то желание закрыто слабо.
 - Если в context есть events, это опубликованные анонсы (не подтверждённые): если событие подходит запросу, назови его, время начала и площадку в why/what_to_do и учти время на дорогу; не обещай, что оно точно состоится.
 - Если в context есть mini_route, это готовый пеший маршрут: рекомендуй ровно эти места в этом порядке. В "why" объясни, почему остановка хороша в маршруте, в "what_to_do" уложи план в visit_min минут этой остановки; в summary назови маршрут целиком.
+- Если в context есть finish, маршрут заканчивается в этой точке к сроку (back_to_start — возврат к началу). Финиш — не рекомендация: не описывай его как место. В summary скажи, во сколько пользователь будет на финише (arrival_clock) и какой остаётся запас; в spoken тоже закончи этим.
 - "summary": одно предложение-вступление к подборке.
 - "spoken": короткая выжимка для озвучки незрячему пользователю, 2–4 предложения, не длиннее 450 символов, на языке request. Назови, сколько мест, и для каждого по порядку: название, что там (кухня или тип места по данным), сколько минут пешком и в какую сторону (поле direction), открыто ли по расписанию (если hours_status unknown — «часы не подтверждены»), и есть ли по данным доступный вход или пандус (только если true). Обычные предложения: без списков, скобок, кавычек-ёлочек, эмодзи, ссылок, звёздочек и сокращений вроде «мин»; не придумывай того, чего нет в данных.
 - Язык ответа (summary, why, what_to_do) — язык поля request, даже если данные мест на русском: английский запрос → ответ на английском, казахский → на казахском. Названия мест не переводи. Кратко, без воды.
@@ -408,6 +409,8 @@ SPOKEN = {
         "unknown": "часы не подтверждены",
         "access": "по данным источника есть доступный вход",
         "none": "Подходящих мест не нашёл. Попробуйте изменить время или место старта.",
+        "finish": "Потом {walk} до финиша, {place}, будете там примерно в {at}.",
+        "start": "к началу прогулки",
     },
     "kk": {
         "count": {1: "Бір орын таптым.", 2: "Екі орын таптым.", 3: "Үш орын таптым."},
@@ -418,6 +421,8 @@ SPOKEN = {
         "unknown": "жұмыс уақыты расталмаған",
         "access": "дереккөз бойынша қолжетімді кіреберіс бар",
         "none": "Қолайлы орын таппадым. Уақытты немесе бастапқы нүктені өзгертіп көріңіз.",
+        "finish": "Содан соң мәреге дейін {walk}, {place}, онда шамамен {at} боласыз.",
+        "start": "бастапқы нүктеге",
     },
     "en": {
         "count": {1: "I found one place.", 2: "I found two places.", 3: "I found three places."},
@@ -428,6 +433,8 @@ SPOKEN = {
         "unknown": "opening hours not confirmed",
         "access": "the source lists an accessible entrance",
         "none": "I found no suitable places. Try another time or start point.",
+        "finish": "Then {walk} to the finish, {place}; you will be there at about {at}.",
+        "start": "back to the start",
     },
 }
 
@@ -452,7 +459,9 @@ def spoken_from_data(items, lang="ru", route=None, origin=None):
     if not items:
         return say["none"]
     head = (
-        say["route"].format(n=len(items), m=round(route["total_duration_min"]))
+        say["route"].format(n=len(items), m=round(route["total_duration_min"])).replace(
+            "из 1 мест", "из одного места"
+        )
         if route
         else say["count"][len(items)]
     )
@@ -479,4 +488,13 @@ def spoken_from_data(items, lang="ru", route=None, origin=None):
         if p.get("entrance_accessible") is True or p.get("ramps") is True:
             bits.append(say["access"])
         parts.append(f"{order[i]} — " + ", ".join(bits) + ".")
+    finish = (route or {}).get("finish")
+    if finish and finish.get("arrival_at"):
+        parts.append(
+            say["finish"].format(
+                walk=_walk_words(max(1, round(finish["leg"]["duration_min"])), lang),
+                place=say["start"] if finish["loop"] else finish["label"],
+                at=finish["arrival_at"][11:16],
+            )
+        )
     return " ".join(parts)

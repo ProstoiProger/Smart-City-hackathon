@@ -88,6 +88,21 @@ function Filters({ walk }: { walk: Walk }) {
           </select>
         </div>
       </div>
+      <div className="finish-row">
+        <label htmlFor="finish">{t("filters.finish")}</label>
+        <select id="finish" value={f.finishKey} onChange={(e) => f.setFinishKey(e.target.value)} aria-describedby="finish-hint">
+          <option value="">{t("filters.finishNone")}</option>
+          <option value="loop">{t("filters.finishLoop")}</option>
+          {Object.entries(meta?.landmarks || {})
+            .filter(([key]) => key !== f.landmarkKey)
+            .map(([key, p]) => (
+              <option key={key} value={key}>
+                {has("lm." + key) ? t("lm." + key) : p.name}
+              </option>
+            ))}
+        </select>
+        <small id="finish-hint">{t("filters.finishHint")}</small>
+      </div>
       <div className="origin-actions">
         <button
           type="button"

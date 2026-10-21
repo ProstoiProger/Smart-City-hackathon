@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 from .settings import DATA, ROOT, setting
 from .hours import closure, parse_when
-from .service import ATTR_LABEL, City, LABELS, read_intents, weather_widened
+from .service import ATTR_LABEL, City, LABELS, read_intents, toward, weather_widened
 from .routing import MAX_ALLOWED_SNAP_M, MAX_SNAP_M, MIN_SNAP_M, meters
 from .providers import PROVIDERS, compass, explain_from_data, select_spoken, spoken_from_data, configured
 from .query import (
@@ -17,7 +17,14 @@ from .query import (
     NEARBY_WALK_MIN,
     content_query,
     cover_groups,
+    finish_cue,
+    finish_filler,
+    has_deadline,
     language,
+    LOOP,
+    parse_deadline,
+    parse_reserve,
+    wants_loop,
     parse_budget,
     parse_time_of_day,
     tokens,
@@ -32,6 +39,8 @@ from . import cityaudit, placeqa, tours as tour_data
 from .group import MAX_MEMBERS, MIN_MEMBERS, clean_members, group_pool
 from .photos import main_photo
 from . import tts
+from . import trip
+from .trip import DEFAULT_FINISH_RESERVE_MIN, finish_text, stamp_finish
 
 city = None
 tours = None
@@ -169,6 +178,63 @@ class ChatRequest(SearchRequest):
     mini_route: bool | None = None
     # Group mode: each member's own wish; the answer is the best compromise for all of them.
     members: list[GroupMember] | None = Field(None, max_length=MAX_MEMBERS)
+    # Where the walk must end by the end of the budget (a place named in the text wins).
+    finish_latitude: float | None = Field(None, ge=50.8, le=51.5)
+    finish_longitude: float | None = Field(None, ge=71.0, le=71.9)
+    finish_label: str | None = Field(None, max_length=120)
+    # True: come back to the start ("вернуться к началу").
+    finish_loop: bool = False
+    # Spare minutes at the finish; None: from the text or the default.
+    finish_reserve_min: int | None = Field(None, ge=0, le=60)
+
+    @model_validator(mode="after")
+    def validate_finish(self):
+        if (self.finish_latitude is None) != (self.finish_longitude is None):
+            raise ValueError("Укажите обе координаты финиша")
+        return self
+
+
+class Point(BaseModel):
+    latitude: float = Field(ge=50.8, le=51.5)
+    longitude: float = Field(ge=71.0, le=71.9)
+    label: str = Field("", max_length=120)
+
+
+class FinishPoint(Point):
+    loop: bool = False
+
+
+class ReplanRequest(BaseModel):
+    """The walk state the client keeps, plus what just happened."""
+
+    query: str = Field("", max_length=1500)
+    start_at: str
+    budget: int = Field(ge=10, le=240)
+    elapsed: float = Field(0, ge=0, le=480)
+    position: Point
+    finish: FinishPoint | None = None
+    reserve: int = Field(0, ge=0, le=60)
+    action: Literal["closed", "delay", "cold", "tired"]
+    stop_id: str | None = Field(None, max_length=200)
+    delay_min: int = Field(15, ge=5, le=60)
+    keep: list[str] = Field(default_factory=list, max_length=3)
+    visited: list[str] = Field(default_factory=list, max_length=30)
+    excluded: list[str] = Field(default_factory=list, max_length=30)
+    flags: list[Literal["indoor", "rest"]] = Field(default_factory=list, max_length=2)
+    category: str | None = None
+    open_only: bool = False
+    strict_amenities: bool = False
+    no_steps: bool = False
+    max_snap_m: int = Field(MAX_SNAP_M, ge=MIN_SNAP_M, le=MAX_ALLOWED_SNAP_M)
+    group_size: int | None = Field(None, ge=1, le=10)
+
+    @model_validator(mode="after")
+    def validate_start(self):
+        try:
+            parse_when(self.start_at)
+        except (ValueError, TypeError):
+            raise ValueError("Неверная дата: требуется ISO 8601")
+        return self
 
 
 class PlanRequest(Context):
@@ -352,6 +418,12 @@ def plan(req: PlanRequest):
     )
 
 
+@app.post("/api/replan")
+def replan(req: ReplanRequest):
+    """Rest of a walk after "здесь закрыто", "+15 минут", "замёрзли" or "устали"."""
+    return trip.replan(city, req)
+
+
 def _interleave(lists):
     """Round-robin merge without duplicates: each named kind of place reaches the top."""
     out, seen = [], set()
@@ -375,9 +447,22 @@ def chat(req: ChatRequest):
     # a candidate. Without any start, the first named place locates the search.
     origin, origin_label = req.origin(), None
     mentions = city.mentions(req.query)
-    start = next((m for m in mentions if m["role"] == "origin" and m["point"]), None)
+    # "Через час нужно быть в MEGA": the walk ends there; it is neither the start nor a stop.
+    toks = tokens(req.query)
+    deadline_said = has_deadline(req.query)
+    end = next(
+        (
+            m
+            for m in mentions
+            if m["point"]
+            and m["role"] != "origin"
+            and (finish_cue(toks, m["tokens"][0], m["tokens"][-1]) or (deadline_said and m["role"] == "destination"))
+        ),
+        None,
+    )
+    start = next((m for m in mentions if m["role"] == "origin" and m["point"] and m is not end), None)
     if start is None and origin is None:
-        start = next((m for m in mentions if m["point"]), None)
+        start = next((m for m in mentions if m["point"] and m is not end), None)
     if start:
         origin, origin_label = start["point"], start["label"]
         start_note = f"{start['label']} (из текста)" + (
@@ -387,9 +472,31 @@ def chat(req: ChatRequest):
         start_note = "точка на карте или выбранный ориентир"
     else:
         start_note = "не задан — пешая доступность не проверена"
-    destinations = [m for m in mentions if m is not start and m["poi_ids"] and m["role"] != "origin"]
-    # The start itself is not what the user looks for: "Я у Экспо" must not return EXPO.
-    effective_query = without_tokens(req.query, start["tokens"]) if start else req.query
+    destinations = [m for m in mentions if m is not start and m is not end and m["poi_ids"] and m["role"] != "origin"]
+    # The start itself is not what the user looks for: "Я у Экспо" must not return EXPO;
+    # nor is the finish ("нужно быть в MEGA" asks for a coffee on the way, not for MEGA).
+    cut = (start["tokens"] if start else []) + (end["tokens"] if end else [])
+    effective_query = without_tokens(req.query, cut) if cut else req.query
+
+    finish, finish_note = None, None
+    if end:
+        finish = {"latitude": end["point"][0], "longitude": end["point"][1], "label": end["label"], "loop": False}
+        finish_note = f"{end['label']} (из текста)"
+    elif origin and (wants_loop(req.query) or req.finish_loop):
+        finish = {"latitude": origin[0], "longitude": origin[1], "label": origin_label or "Точка старта", "loop": True}
+        finish_note = "возврат к началу " + ("(из текста)" if wants_loop(req.query) else "(из условий прогулки)")
+    elif req.finish_latitude is not None:
+        finish = {
+            "latitude": req.finish_latitude, "longitude": req.finish_longitude,
+            "label": req.finish_label or "Финиш", "loop": False,
+        }
+        finish_note = f"{finish['label']} (из условий прогулки)"
+    if finish:
+        effective_query = LOOP.sub(" ", effective_query)
+        effective_query = without_tokens(effective_query, finish_filler(effective_query))
+    if cut or finish:
+        # Punctuation left over from cut words ("Я у , к : в , кофе").
+        effective_query = re.sub(r"\s+", " ", re.sub(r"(?:^|\s)[,.:;!?—-]+(?=\s|$)", " ", effective_query)).strip()
 
     # How long and when.
     flight = wants_flight(req.query)
@@ -402,6 +509,18 @@ def chat(req: ChatRequest):
         text_when, note = parse_time_of_day(req.query)
         when = text_when or when
         when_note = note or when_note
+    reserve, reserve_note = 0, None
+    if finish:
+        deadline, note = parse_deadline(req.query, parse_when(when))
+        if deadline is not None:
+            minutes, budget_note = max(10, min(240, deadline)), note
+        said = parse_reserve(req.query)
+        if req.finish_reserve_min is not None:
+            reserve, reserve_note = req.finish_reserve_min, "из условий прогулки"
+        elif said is not None:
+            reserve, reserve_note = said, "из текста"
+        elif not finish["loop"]:
+            reserve, reserve_note = DEFAULT_FINISH_RESERVE_MIN, "допущение по умолчанию"
     total_minutes = minutes
 
     flight_context = None
@@ -450,7 +569,9 @@ def chat(req: ChatRequest):
     if historical_nur_alem:
         effective_query = "интерактивный музей alem.ai"
     route_mode = (
-        req.mini_route
+        True
+        if finish and origin
+        else req.mini_route
         if req.mini_route is not None
         else bool(ROUTE_INTENT.search(req.query))
     )
@@ -461,7 +582,8 @@ def chat(req: ChatRequest):
     event_intent = bool(EVENT_INTENT.search(req.query))
     cover = [] if req.category else cover_groups(req.query)
     nearby = bool(origin) and not route_mode and not members and wants_nearby(req.query)
-    limit = 24 if route_mode and origin else 9
+    # With a finish more candidates are fetched: those off the way are dropped below.
+    limit = 60 if finish and origin else 24 if route_mode and origin else 9
 
     weather = current_weather()
     comfort = assess(weather, current_air(), when)
@@ -556,15 +678,55 @@ def chat(req: ChatRequest):
             if e["venue_poi_id"] and e["venue_poi_id"] not in known
         ]
         pool = [v for v in venues if v] + pool
-    route = (
-        city.mini_route(
+    route = None
+    if route_mode and origin and finish:
+        if end:
+            pool = [p for p in pool if p["poi_id"] not in set(end["poi_ids"])]
+        pool = toward(pool, origin, finish, minutes - reserve)
+        if cover:
+            # Each named kind keeps its place among the first candidates after the re-sort.
+            kinds = [cat for _, cat in cover]
+            pool = _interleave([[p for p in pool if p.get("category") == cat] for cat in kinds]
+                               + [[p for p in pool if p.get("category") not in kinds]])
+        # "По пути выпить кофе" is one stop; "маршрут до MEGA: музей и кофе" — a walk.
+        wanted_stops = (
+            3
+            if ROUTE_INTENT.search(req.query) or req.mini_route
+            else len(cover)
+            if cover
+            else 1
+            if read_intents(effective_query)[0] or content_query(effective_query)
+            else 2
+        )
+        route = city.mini_route(
+            pool, origin, minutes, when, req.no_steps, req.max_snap_m,
+            cover=[cat for _, cat in cover], finish=finish, reserve=reserve,
+            sizes=tuple(range(wanted_stops, 0, -1)),
+        )
+        if route is None:
+            route = city.direct_route(origin, finish, minutes, reserve, req.no_steps, req.max_snap_m)
+        if route is None:
+            warnings.append(f"До «{finish['label']}» не найден пеший путь по графу OSM.")
+    elif route_mode and origin:
+        route = city.mini_route(
             pool, origin, minutes, when, req.no_steps, req.max_snap_m,
             cover=[cat for _, cat in cover],
         )
-        if route_mode and origin
-        else None
-    )
-    candidates = pool[:9]
+    start_at = parse_when(when)
+    if route:
+        stamp_finish(route, start_at)
+        # What the client sends back to re-plan on the go ("здесь закрыто", "устали").
+        route["session"] = {
+            "query": effective_query,
+            "start_at": start_at.isoformat(timespec="minutes"),
+            "start": {"latitude": origin[0], "longitude": origin[1]},
+            "budget": minutes,
+            "finish": {k: finish[k] for k in ("latitude", "longitude", "label", "loop")} if finish else None,
+            "reserve": reserve,
+            "category": req.category,
+            "group_size": group or None,
+        }
+    candidates = pool[:9] if not (route and route.get("finish") and not route["stops"]) else []
     if route:
         # Route stops may rank below the top 9; the model must see all of them.
         shown = {p["poi_id"] for p in candidates}
@@ -602,10 +764,24 @@ def chat(req: ChatRequest):
             }
             for i, (s, leg) in enumerate(zip(route["stops"], route["legs"]))
         ]
+    if route and route.get("finish"):
+        f = route["finish"]
+        context["finish"] = {
+            "label": f["label"],
+            "back_to_start": f["loop"],
+            "walk_from_last_stop_min": round(f["leg"]["duration_min"]),
+            "arrival_after_min": round(f["arrival_offset_min"]),
+            "arrival_clock": f["arrival_at"][11:16],
+            "reserve_min": f["reserve_min"],
+        }
     # Which way each place lies from the start: spoken summaries need it more than a map line.
     for c in candidates:
         c["direction"] = compass(origin, (c.get("latitude"), c.get("longitude")), lang) if origin else None
-    picks, summary, warning, spoken_ai = select_spoken(provider, req.query, candidates, context)
+    if candidates:
+        picks, summary, warning, spoken_ai = select_spoken(provider, req.query, candidates, context)
+    else:
+        # Only the way to the finish: there is nothing for the model to choose.
+        picks, summary, warning, spoken_ai = [], None, None, None
     byid = {p["poi_id"]: p for p in candidates}
     if route:
         # The answer follows the route order; stops the model skipped get data-based text.
@@ -643,6 +819,8 @@ def chat(req: ChatRequest):
     generated = any(p["generated"] for p in picks)
     # Short text for TTS / screen-reader users: the model's summary, or one built from the data.
     spoken = spoken_ai if generated and spoken_ai else spoken_from_data(selected, lang, route, origin)
+    if route and route.get("finish") and not route["stops"]:
+        spoken = finish_text(route, start_at)
     chosen = {p["poi_id"] for p in selected}
     for item in pool[:9]:
         if item["poi_id"] in chosen:
@@ -662,7 +840,9 @@ def chat(req: ChatRequest):
     )
     if selected and not origin:
         text += " Выберите начало на карте, чтобы проверить пешую доступность и построить маршрут."
-    if route:
+    if route and route.get("finish"):
+        text = finish_text(route, start_at) + (" " + text if selected else "")
+    elif route:
         text = (
             f"Мини-маршрут: {len(route['stops'])} места за ~{round(route['total_duration_min'])} мин "
             f"из {minutes} (пешком ~{round(route['walk_duration_min'])} мин). " + text
@@ -757,6 +937,10 @@ def chat(req: ChatRequest):
         considered.append({"label": "Удобства из запроса", "value": ", ".join(ATTR_LABEL[a] for a in wanted)})
     if destinations:
         considered.append({"label": "Место из запроса", "value": ", ".join(m["label"] for m in destinations[:2])})
+    if finish:
+        considered.append({"label": "Финиш", "value": finish_note})
+        if reserve_note:
+            considered.append({"label": "Запас у финиша", "value": f"{reserve} мин — {reserve_note}"})
     if comfort_note:
         considered.append({"label": "Погода и воздух", "value": comfort_note})
     if members:
@@ -787,7 +971,7 @@ def chat(req: ChatRequest):
                 + ("(ваши оценки)" if not flight_context["needs_buffers"] else "(допущение, можно изменить)"),
             }
         )
-    if route_mode and origin:
+    if route_mode and origin and not finish:
         considered.append(
             {"label": "Мини-маршрут", "value": "включён переключателем" if req.mini_route else "запрос про прогулку или маршрут"}
         )
@@ -824,10 +1008,15 @@ def chat(req: ChatRequest):
         + (
             [
                 {
-                    "action": "Мини-маршрут",
+                    "action": "Маршрут до финиша" if route.get("finish") else "Мини-маршрут",
                     "result": (
                         f"{len(route['stops'])} места, {round(route['total_duration_min'])} из {minutes} мин: "
                         f"порядок и пешие отрезки по графу OSM, часы работы проверены на момент прихода"
+                        + (
+                            f"; последний отрезок до «{route['finish']['label']}» и запас {route['finish']['reserve_min']} мин учтены"
+                            if route.get("finish")
+                            else ""
+                        )
                     ),
                 }
             ]

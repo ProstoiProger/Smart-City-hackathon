@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import CityMap from "../Map";
 import { Icon } from "../lib/Icon";
 import { useT } from "../lib/i18n";
@@ -11,7 +11,20 @@ export function MapPanel({ walk }: { walk: Walk }) {
   const { theme } = usePrefs();
   const [tileError, setTileError] = useState(false);
   const { items, selected, plan, filters } = walk;
-  const routes = walk.tour ? [] : plan?.legs || (selected?.route ? [selected.route] : []);
+  // Memoized: a new array on every render would refit the map on every keystroke.
+  const routes = useMemo(
+    () =>
+      walk.tour
+        ? []
+        : plan
+          ? [...plan.legs, ...(plan.finish ? [plan.finish.leg] : [])]
+          : selected?.route
+            ? [selected.route]
+            : [],
+    [walk.tour, plan, selected],
+  );
+  // The end of a walk at another place gets its own pin; a loop ends at the start pin.
+  const finish = !walk.tour && plan?.finish && !plan.finish.loop ? plan.finish : undefined;
   return (
     <section className="map-panel" aria-label={t("nav.map")}>
       <CityMap
@@ -19,11 +32,14 @@ export function MapPanel({ walk }: { walk: Walk }) {
         selected={selected}
         origin={filters.origin}
         routes={routes}
+        // After a re-plan the rest of the walk starts where the walker is, not at the start pin.
+        routeStart={walk.trip && plan ? walk.trip.position : filters.origin}
+        finish={finish && { point: [finish.latitude, finish.longitude], label: finish.label }}
         picking={filters.picking}
         onSelect={(p) => walk.selectPlace(p, false)}
         onOrigin={walk.pickOrigin}
         onTileError={() => setTileError(true)}
-        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originName }}
+        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originName, finish: t("map.finish") }}
         theme={theme}
         tour={walk.tour}
         onTourStop={(i) => walk.tour && walk.setTour({ ...walk.tour, current: i })}

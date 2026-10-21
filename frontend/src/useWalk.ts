@@ -9,6 +9,9 @@ import {
   type Plan,
   type Poi,
   type Provider,
+  type ReplanResponse,
+  type TripAction,
+  type TripSession,
   type Weather,
 } from "./api";
 import { has, useT } from "./lib/i18n";
@@ -16,6 +19,31 @@ import { has, useT } from "./lib/i18n";
 export type Panel = "places" | "map" | "chat";
 export type Message = { id: number; role: "user" | "assistant"; text: string; data?: ChatResponse };
 export type Origin = [number, number];
+/** A walk in progress: the plan's session plus what happened on the way. */
+export type Trip = {
+  session: TripSession;
+  /** Minutes since the start at `position` (after the last visit). */
+  elapsed: number;
+  position: Origin;
+  visited: string[];
+  excluded: string[];
+  flags: string[];
+  history: { id: string; name: string; status: "visited" | "closed" }[];
+  /** What the last re-plan changed (server-composed text). */
+  note?: string;
+};
+
+function freshTrip(session: TripSession): Trip {
+  return {
+    session,
+    elapsed: 0,
+    position: [session.start.latitude, session.start.longitude],
+    visited: [],
+    excluded: [],
+    flags: [],
+    history: [],
+  };
+}
 
 const BAYTEREK: Origin = [51.1282882, 71.4304546];
 const ASTANA_BOUNDS = { minLat: 50.8, maxLat: 51.5, minLon: 71, maxLon: 71.9 };
@@ -45,6 +73,9 @@ export function useWalk() {
   const [airportReserve, setAirportReserve] = useState("");
   const [provider, setProvider] = useState<Provider>("offline");
   const [miniRoute, setMiniRoute] = useState(false);
+  // "" — anywhere, "loop" — back to the start, or a landmark key.
+  const [finishKey, setFinishKey] = useState("");
+  const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -88,6 +119,7 @@ export function useWalk() {
     setLoading(true);
     setError("");
     setPlan(undefined);
+    setTrip(null);
     setSelected(undefined);
     try {
       const data = await request<{ items: Poi[]; warnings: string[] }>(
@@ -138,12 +170,15 @@ export function useWalk() {
         // Unchecked: the server still builds a route when the request asks for a walk.
         mini_route: miniRoute ? true : null,
         members: members.length >= 2 ? members : undefined,
+        ...finishBody(),
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
       setItems(data.items);
       setSelected(undefined);
-      // A mini-route goes straight onto the map as the current itinerary.
-      setPlan(data.mini_route?.stops.length ? data.mini_route : undefined);
+      // A mini-route (or the way to a finish) goes straight onto the map as the current itinerary.
+      const route = data.mini_route;
+      setPlan(route && (route.stops.length || route.finish) ? route : undefined);
+      setTrip(route?.session ? freshTrip(route.session) : null);
       if (data.origin) {
         setOrigin([data.origin.latitude, data.origin.longitude]);
         if (data.origin.label) setOriginLabel(data.origin.label);
@@ -156,9 +191,84 @@ export function useWalk() {
     }
   }
 
+  function finishBody() {
+    if (finishKey === "loop") return { finish_loop: true };
+    const lm = finishKey ? meta?.landmarks[finishKey] : undefined;
+    if (!lm) return {};
+    return {
+      finish_latitude: lm.lat,
+      finish_longitude: lm.lon,
+      finish_label: has("lm." + finishKey) ? t("lm." + finishKey) : lm.name,
+    };
+  }
+
+  /** "Посетили": the next stop moves to the history; the times of the rest stay. */
+  function visitStop() {
+    if (!plan || !trip || !plan.stops.length) return;
+    const [s, ...rest] = plan.stops;
+    setPlan({ ...plan, stops: rest, legs: plan.legs.slice(1) });
+    setTrip({
+      ...trip,
+      elapsed: (s.arrival_offset_min ?? trip.elapsed) + s.suggested_visit_duration_min,
+      position: [s.latitude, s.longitude],
+      visited: [...trip.visited, s.poi_id],
+      history: [...trip.history, { id: s.poi_id, name: s.display_name, status: "visited" }],
+      note: undefined,
+    });
+  }
+
+  /** The rest of the walk after an event; the finish and its deadline stay. */
+  async function replan(action: TripAction) {
+    if (!plan || !trip || busy) return;
+    const next = plan.stops[0];
+    const closing = action === "closed" && next;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await request<ReplanResponse>("replan", {
+        ...trip.session,
+        action,
+        elapsed: closing ? (next.arrival_offset_min ?? trip.elapsed) : trip.elapsed,
+        position: closing
+          ? { latitude: next.latitude, longitude: next.longitude }
+          : { latitude: trip.position[0], longitude: trip.position[1] },
+        stop_id: closing ? next.poi_id : null,
+        keep: plan.stops.map((p) => p.poi_id),
+        visited: trip.visited,
+        excluded: trip.excluded,
+        flags: trip.flags,
+        open_only: openOnly,
+        strict_amenities: strict,
+        no_steps: noSteps,
+        max_snap_m: snapRadius,
+      });
+      const st = data.state;
+      setTrip({
+        ...trip,
+        elapsed: st.elapsed,
+        position: [st.position.latitude, st.position.longitude],
+        visited: st.visited,
+        excluded: st.excluded,
+        flags: st.flags,
+        history: closing ? [...trip.history, { id: next.poi_id, name: next.display_name, status: "closed" }] : trip.history,
+        note: data.answer,
+      });
+      setPlan(
+        data.plan
+          ? { ...data.plan, session: trip.session }
+          : { ...plan, stops: [], legs: [], finish: undefined },
+      );
+    } catch (e) {
+      setError(message(e, "err.replan"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function buildPlan(ids: string[]) {
     setBusy(true);
     setError("");
+    setTrip(null);
     try {
       const data = await request<Plan>("plan", { ...ctx(), poi_ids: ids });
       setPlan(data);
@@ -172,9 +282,11 @@ export function useWalk() {
     }
   }
 
+  /** A route from a chat answer starts its walk over. */
   function showPlan(p: Plan) {
     setSelected(undefined);
     setPlan(p);
+    setTrip(p.session ? freshTrip(p.session) : null);
     setPanel("map");
   }
 
@@ -251,11 +363,13 @@ export function useWalk() {
       query, setQuery, category, setCategory, minutes, setMinutes, when, setWhen,
       origin, originLabel, originName, landmarkKey, setLandmark, picking, setPicking, locate,
       openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict, groupSize, setGroupSize,
+      finishKey, setFinishKey,
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
     chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
     afishaState: { afisha, setAfisha, openAfisha },
     tour, setTour,
+    trip, visitStop, replan,
     search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };
 }

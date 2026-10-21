@@ -301,6 +301,49 @@ export interface EventMatch {
   age_group?: string | null;
   source_url?: string;
 }
+/** Where a walk ends by the end of its budget, and when the walker gets there. */
+export interface FinishInfo {
+  label: string;
+  latitude: number;
+  longitude: number;
+  /** Back to the start. */
+  loop: boolean;
+  /** Walk from the last stop (or the start) to the finish. */
+  leg: Route;
+  arrival_offset_min: number;
+  reserve_min: number;
+  slack_min: number;
+  /** Arrival plus the reserve fits the budget. */
+  fits: boolean;
+  arrival_at?: string;
+  deadline_at?: string;
+}
+/** What the client sends back to re-plan the walk on the go. */
+export interface TripSession {
+  query: string;
+  start_at: string;
+  start: { latitude: number; longitude: number };
+  budget: number;
+  finish: { latitude: number; longitude: number; label: string; loop: boolean } | null;
+  reserve: number;
+  category?: string | null;
+  group_size?: number | null;
+}
+export type TripAction = "closed" | "delay" | "cold" | "tired";
+export interface ReplanResponse {
+  answer: string;
+  plan: Plan | null;
+  changes: { removed: string[]; added: string[] };
+  state: {
+    elapsed: number;
+    position: { latitude: number; longitude: number };
+    excluded: string[];
+    visited: string[];
+    flags: string[];
+    now: string;
+    remaining_min: number;
+  };
+}
 export interface Plan {
   kind?: "mini_route";
   stops: Poi[];
@@ -310,6 +353,8 @@ export interface Plan {
   budget_minutes?: number;
   warnings: string[];
   return_trip_included: boolean;
+  finish?: FinishInfo;
+  session?: TripSession;
 }
 export async function request<T>(
   path: string,

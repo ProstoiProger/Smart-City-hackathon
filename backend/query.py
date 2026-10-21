@@ -90,6 +90,7 @@ WORD_HOURS = [
     (r"пар[уыа]\s+час\w*|два\s+часа|двух\s+часов|екі\s+сағат|couple\s+of\s+hours|two\s+hours", 120, "«пару часов»"),
     (r"три\s+часа|трёх\s+часов|трех\s+часов|үш\s+сағат|three\s+hours", 180, "«три часа»"),
     (r"(?:за|на|в\s+течение)\s+час\b|бір\s+сағат|an?\s+hour\b|one\s+hour", 60, "«час»"),
+    (r"через\s+час\b|in\s+an?\s+hour\b", 60, "«через час»"),
 ]
 
 
@@ -266,3 +267,90 @@ def wants_flight(text):
             continue
         return True
     return False
+
+
+# --- where and when the walk must end ------------------------------------------------
+
+# "Через час нужно быть в MEGA", "к 18:00 успеть в Хан Шатыр", "MEGA-да болуым керек":
+# the named place is the end of the walk, not a stop to visit.
+FINISH_BEFORE = {
+    fold(w)
+    for w in "быть буду будем успеть успею успеем закончить закончу закончим финиш финишировать "
+    "добраться доберусь доберемся оказаться встреча встречаемся ждут прийти приду придем "
+    "be end finish reach meet meeting".split()
+}
+FINISH_AFTER = re.compile(r"^(?:бол(?:у|ам|амыз)|жет(?:у|ем|емиз))")
+# Back to the start: a loop walk ends where it began.
+LOOP = re.compile(
+    r"вернуться\s+(?:к\s+началу|обратно|назад|сюда|туда\s+же|в\s+исходн\w*|на\s+старт|к\s+старту)|"
+    r"обратно\s+к\s+(?:началу|старту)|с\s+возвратом|кругов\w*\s+маршрут|по\s+кругу|"
+    r"бастапқы\s+нүктеге|кері\s+қайт\w*|қайта\s+орал\w*|"
+    r"back\s+to\s+(?:the\s+)?start|round\s+trip|\bloop\b|return\s+to\s+(?:the\s+)?start",
+    re.I,
+)
+DEADLINE = re.compile(
+    r"(?:\bк|\bдо|\bby|\bat)\s+(\d{1,2})[:.](\d{2})\b|(?:\bк|\bдо)\s+(\d{1,2})\s+час\w*|"
+    r"\b(\d{1,2})[:.](\d{2})\s*-?\s*(?:ге|ға|ке|қа)?\s*дейін",
+    re.I,
+)
+RESERVE = re.compile(
+    r"(?:запас\w*|резерв\w*)\s+(?:в\s+)?(\d{1,2})\s*мин|(\d{1,2})\s*мин\w*\s+(?:в\s+|на\s+)?(?:запас|резерв)|"
+    r"(\d{1,2})\s*min\w*\s+(?:spare|buffer)|(?:buffer|spare)\s+of\s+(\d{1,2})\s*min",
+    re.I,
+)
+NO_RESERVE = re.compile(r"без\s+запаса|без\s+резерва|no\s+buffer", re.I)
+# Words about the deadline itself: they are not what to look for on the way.
+FINISH_FILLER = FINISH_BEFORE | {
+    fold(w)
+    for w in "через нужно надо нужна необходимо потом затем после запас запасом резерв пути "
+    "вернуться обратно назад началу старту исходную круговой кругу возвратом "
+    "need have by then after way back start керек".split()
+}
+
+
+def finish_filler(text):
+    """Token indexes of deadline words and numbers ("через 2 часа нужно быть")."""
+    return [i for i, (t, _, _) in enumerate(tokens(text)) if t in FINISH_FILLER or t.isdigit()]
+
+
+def finish_cue(toks, first, last):
+    """True when the words around a mention say the walk must end there."""
+    before = [t for t, _, _ in toks[max(0, first - 5) : first]]
+    after = [t for t, _, _ in toks[last + 1 : last + 2]]
+    return any(w in FINISH_BEFORE for w in before) or bool(after and FINISH_AFTER.match(after[0]))
+
+
+def wants_loop(text):
+    return bool(LOOP.search(str(text or "")))
+
+
+def has_deadline(text):
+    return bool(DEADLINE.search(str(text or "")))
+
+
+def parse_deadline(text, start):
+    """(minutes from `start` to the clock time in the text, note) or (None, None).
+
+    "к 18:00" said at 19:00 means tomorrow is not meant: the result is 0 (already late).
+    """
+    m = DEADLINE.search(str(text or ""))
+    if not m:
+        return None, None
+    hour = int(m[1] or m[3] or m[4])
+    minute = int(m[2] or m[5] or 0)
+    if hour > 23 or minute > 59:
+        return None, None
+    at = start.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    minutes = (at - start).total_seconds() / 60
+    if minutes < -12 * 60:
+        minutes += 24 * 60  # "к 01:00" said late in the evening
+    return max(0, int(minutes)), f"к {hour:02d}:{minute:02d} (из текста)"
+
+
+def parse_reserve(text):
+    """Minutes to keep spare at the finish, if the text says so; 0 for "без запаса"."""
+    text = str(text or "")
+    if NO_RESERVE.search(text):
+        return 0
+    m = RESERVE.search(text)
+    return int(next(g for g in m.groups() if g)) if m else None

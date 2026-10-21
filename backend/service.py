@@ -51,6 +51,7 @@ LANDMARK_PATTERNS = {
     "expo": r"\bexpo\b|\bэкспо\b",
     "alem": r"alem\.ai|алем",
 }
+COFFEE_PLACES = {"coffee_shop", "cafe", "bakery", "confectionery", "cafe_confectionery"}
 # Names that are a kind of place, not one place: "Столовая", "Кофейня", "Сквер".
 GENERIC_NAMES = {
     "сквер", "фонтан", "аллея", "бульвар", "площадь", "набережная", "магазин", "аптека",
@@ -300,6 +301,41 @@ def evidence(p, attr, signals):
     return (s["status"], s) if s else ("unknown", None)
 
 
+def finish_info(finish, leg, elapsed, minutes, reserve):
+    """The end of a walk: when the walker gets there and how much time is left over."""
+    arrival = round(elapsed + leg["duration_min"], 1)
+    return {
+        "label": finish.get("label") or "Финиш",
+        "latitude": finish["latitude"],
+        "longitude": finish["longitude"],
+        "loop": bool(finish.get("loop")),
+        "leg": leg,
+        "arrival_offset_min": arrival,
+        "reserve_min": reserve,
+        "slack_min": round(minutes - arrival, 1),
+        "fits": arrival + reserve <= minutes,
+    }
+
+
+def toward(pool, origin, finish, minutes):
+    """Candidates on the way to the finish. A stop far off the line start -> finish
+    cannot fit, and of two equal places the one with the smaller detour ranks higher.
+    Straight lines times 1.15 approximate the walking network (Байтерек -> MEGA: 1.14)."""
+    goal = (finish["latitude"], finish["longitude"])
+    direct = meters(origin, goal)
+    out = []
+    for p in pool:
+        point = (p["latitude"], p["longitude"])
+        way = meters(origin, point) + meters(point, goal)
+        stay = min(p.get("suggested_visit_duration_min") or 30, MIN_STAY.get(p.get("category"), 15))
+        if way * 1.15 / 75 + stay > minutes:
+            continue
+        detour = (way - direct) / max(1.0, minutes * 75)
+        out.append((p.get("search_score", 0) - 0.6 * detour, p))
+    out.sort(key=lambda t: t[0], reverse=True)
+    return [p for _, p in out]
+
+
 class City:
     def __init__(self):
         self.pois = [
@@ -490,6 +526,7 @@ class City:
         if re.search(r"детск.{0,8}меню|балалар.{0,10}мәзір", query):
             family_requirements.append("меню")
         need_quiet = "quiet" in wanted
+        wants_coffee = bool(re.search(r"коф|coffee|кофе|кафе", query)) and not re.search(r"кофейн\w*\s+(?:нет|не)", query)
         need_free = bool(re.search(r"бесплат|тегін|\bfree\b", query))
         # Strict mode filters on amenities a visitor relies on; kids/view only rank.
         strict_attrs = [
@@ -544,6 +581,9 @@ class City:
                 if p.get("category") not in preferred and p["poi_id"] not in named:
                     continue
                 score += 0.3
+            if wants_coffee and p.get("subcategory") in COFFEE_PLACES:
+                # "Выпить кофе": a coffee shop, not the nearest doner (text scores barely differ).
+                score += 0.12
             if strict_amenities:
                 missing = [
                     a for a in strict_attrs if evidence(p, a, signals)[0] not in ("confirmed", "supported")
@@ -895,6 +935,10 @@ class City:
         size=3,
         pool=16,
         cover=(),
+        finish=None,
+        reserve=0,
+        sizes=None,
+        max_leg=None,
     ):
         """Best ordered set of up to `size` candidates that fits the time budget together.
 
@@ -904,6 +948,12 @@ class City:
         category variety and, among equal sets, walks less. Falls back to 2 stops.
         `cover` lists categories the request named together ("музей и кофе"): a route
         must include each of them; only if none fits, the route is built without it.
+
+        `finish` ({latitude, longitude, label, loop}) ends the walk at a point by the end
+        of the budget: the last leg to it and `reserve` spare minutes count too, so the
+        stops are chosen for the whole way start -> stops -> finish. `sizes` lists the stop
+        counts to try in order (default: `size`, then 2); `max_leg` caps each walk between
+        stops (tired or cold walkers).
         """
         if not origin:
             return None
@@ -912,11 +962,13 @@ class City:
             for c in candidates[:pool]
             if c["poi_id"] in self.byid and not closure(self.byid[c["poi_id"]])
         ]
-        if len(cands) < 2:
+        sizes = tuple(sizes or (size, 2))
+        if not cands or len(cands) < min(sizes):
             return None
         relevance = {c["poi_id"]: c.get("search_score", 0) for c in candidates}
         start = parse_when(when)
         points = [origin] + [(p["latitude"], p["longitude"]) for p in cands]
+        goal = (finish["latitude"], finish["longitude"]) if finish else None
         stay = [0] + [
             p.get("suggested_visit_duration_min") or DEFAULT_STAY.get(p.get("category"), 30)
             for p in cands
@@ -932,8 +984,12 @@ class City:
             for j in range(1, len(points)):
                 if j != i:
                     route = self.router.route(point, points[j], no_steps, state)
-                    if route:
+                    if route and (max_leg is None or route["duration_min"] <= max_leg):
                         legs[(i, j)] = route
+            if goal:
+                route = self.router.route(point, goal, no_steps, state)
+                if route:
+                    legs[(i, "F")] = route
         # A walk of three near-identical objects (e.g. three rocket models in one park)
         # is not a route: stops must not share a name stem; a repeated subcategory costs.
         def stem(p):
@@ -968,11 +1024,17 @@ class City:
                 arrivals.append(arrival)
                 used.append(leg)
                 prev = j
-            return elapsed, arrivals, used, [stays[j] for j in seq]
+            last = None
+            if goal:
+                last = legs.get((prev, "F"))
+                if last is None or elapsed + last["duration_min"] + reserve > minutes:
+                    return None
+            return elapsed, arrivals, used, [stays[j] for j in seq], last
 
         best = None
+        direct = legs[(0, "F")]["duration_min"] if goal and (0, "F") in legs else None
         needs = [set(cover), set()] if cover else [set()]
-        attempts = [(need, count) for need in needs for count in (size, 2) if len(need) <= count]
+        attempts = [(need, count) for need in needs for count in sizes if 1 <= count and len(need) <= count]
         for need, count in attempts:
             for seq in itertools.permutations(range(1, len(points)), count):
                 if not varied(seq):
@@ -982,7 +1044,7 @@ class City:
                 result = walk_through(seq, stay) or walk_through(seq, short)
                 if result is None:
                     continue
-                elapsed, arrivals, used, visits = result
+                elapsed, arrivals, used, visits, last = result
                 ids = [cands[j - 1]["poi_id"] for j in seq]
                 shortened = sum(v < stay[j] for v, j in zip(visits, seq))
                 value = (
@@ -990,16 +1052,20 @@ class City:
                     + 0.12 * len({cands[j - 1].get("category") for j in seq})
                     + 0.4 * sum(pid in prefer for pid in ids)
                     - 0.25 * repeats(seq)
-                    - 0.002 * sum(leg["duration_min"] for leg in used)
+                    - 0.002 * (sum(leg["duration_min"] for leg in used) + (last["duration_min"] if last else 0))
                     - 0.05 * shortened
                 )
+                if last is not None and direct is not None:
+                    # Toward a finish, every minute of detour off the direct way costs:
+                    # "кофе по пути" should not lead away from MEGA.
+                    value -= 0.01 * max(0.0, sum(leg["duration_min"] for leg in used) + last["duration_min"] - direct)
                 if best is None or value > best[0]:
-                    best = (value, seq, used, arrivals, elapsed, need, visits)
+                    best = (value, seq, used, arrivals, elapsed, need, visits, last)
             if best:
                 break
         if not best:
             return None
-        _, seq, used, arrivals, elapsed, need, visits = best
+        _, seq, used, arrivals, elapsed, need, visits, last = best
         missing = [c for c in cover if c not in need]
         stops = []
         for j, arrival, visit in zip(seq, arrivals, visits):
@@ -1011,7 +1077,7 @@ class City:
             stop["arrival_offset_min"] = round(arrival)
             stops.append(stop)
         walk = sum(leg["duration_min"] for leg in used)
-        return {
+        out = {
             "kind": "mini_route",
             "stops": stops,
             "legs": used,
@@ -1027,9 +1093,42 @@ class City:
                 else []
             )
             + [
-                "Порядок и время рассчитаны по пешеходному графу OSM; маршрут без возвращения к началу.",
+                "Порядок и время рассчитаны по пешеходному графу OSM"
+                + ("." if finish else "; маршрут без возвращения к началу."),
                 "Время посещения — оценка; часы и доступность требуют уточнения.",
             ],
+        }
+        if finish:
+            out["finish"] = finish_info(finish, last, elapsed, minutes, reserve)
+            out["total_duration_min"] = out["finish"]["arrival_offset_min"]
+            out["walk_duration_min"] = round(walk + last["duration_min"], 1)
+            out["return_trip_included"] = bool(finish.get("loop"))
+        return out
+
+    def finish_leg(self, origin, finish, no_steps=False, max_snap_m=MAX_SNAP_M):
+        """Walking route from a point straight to the finish, or None."""
+        state = self.router.paths(origin, no_steps, max_minutes=480, max_snap_m=max_snap_m)
+        if state is None:
+            return None
+        return self.router.route(origin, (finish["latitude"], finish["longitude"]), no_steps, state)
+
+    def direct_route(self, origin, finish, minutes, reserve=0, no_steps=False, max_snap_m=MAX_SNAP_M):
+        """A route with no stops, only the way to the finish. It may not fit the budget:
+        `finish.fits` says so, and the answer tells the user honestly."""
+        leg = self.finish_leg(origin, finish, no_steps, max_snap_m)
+        if leg is None:
+            return None
+        return {
+            "kind": "mini_route",
+            "stops": [],
+            "legs": [],
+            "total_duration_min": round(leg["duration_min"], 1),
+            "walk_duration_min": round(leg["duration_min"], 1),
+            "budget_minutes": minutes,
+            "return_trip_included": bool(finish.get("loop")),
+            "covers_requested": True,
+            "finish": finish_info(finish, leg, 0, minutes, reserve),
+            "warnings": ["Время пути рассчитано по пешеходному графу OSM; транспорт и пробки не учитываются."],
         }
 
     def plan(self, ids, origin, minutes, when, no_steps=False, max_snap_m=MAX_SNAP_M):

@@ -19,6 +19,8 @@ export default function CityMap({
   selected,
   origin,
   routes,
+  routeStart,
+  finish,
   picking,
   onSelect,
   onOrigin,
@@ -32,11 +34,14 @@ export default function CityMap({
   selected?: Poi;
   origin: [number, number] | null;
   routes: Route[];
+  /** Where the drawn route begins (the start, or the walker's place after a re-plan). */
+  routeStart?: [number, number] | null;
+  finish?: { point: [number, number]; label: string };
   picking: boolean;
   onSelect: (p: Poi) => void;
   onOrigin: (p: [number, number]) => void;
   onTileError: () => void;
-  labels: { aria: string; start: string; startName: string };
+  labels: { aria: string; start: string; startName: string; finish?: string };
   theme: string;
   tour?: { detail: TourDetail; current: number } | null;
   onTourStop?: (index: number) => void;
@@ -46,7 +51,8 @@ export default function CityMap({
     markers = useRef<L.MarkerClusterGroup | null>(null),
     paths = useRef<L.LayerGroup | null>(null),
     tourLayer = useRef<L.LayerGroup | null>(null),
-    start = useRef<L.Marker | null>(null);
+    start = useRef<L.Marker | null>(null),
+    end = useRef<L.Marker | null>(null);
   const handlers = useRef({ picking, onOrigin, onSelect, onTileError, onTourStop });
   handlers.current = { picking, onOrigin, onSelect, onTileError, onTourStop };
   useEffect(() => {
@@ -158,6 +164,27 @@ export default function CityMap({
     }
   }, [origin, labels.start, labels.startName]);
   useEffect(() => {
+    end.current?.remove();
+    end.current = null;
+    if (!finish || !map.current) return;
+    // The finish of a walk: a dark pin with a flag and its name, unlike the orange start.
+    const name = document.createElement("span");
+    name.textContent = finish.label;
+    end.current = L.marker(finish.point, {
+      icon: L.divIcon({
+        className: "start-wrap finish-wrap",
+        html:
+          `<span class="start-pin finish-pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></svg></span>` +
+          `<span class="start-chip finish-chip"><b>${labels.finish ?? ""}</b>${name.innerHTML}</span>`,
+        iconSize: [40, 50],
+        iconAnchor: [20, 48],
+      }),
+      title: `${labels.finish ?? ""}: ${finish.label}`,
+      zIndexOffset: 900,
+      keyboard: false,
+    }).addTo(map.current);
+  }, [finish?.point[0], finish?.point[1], finish?.label, labels.finish]);
+  useEffect(() => {
     const layer = paths.current;
     layer?.clearLayers();
     if (!layer || !map.current) return;
@@ -174,15 +201,16 @@ export default function CityMap({
         }).addTo(layer);
       r.geometry.forEach((p) => bounds.extend(p));
     });
-    if (origin && routes[0]?.geometry[0])
-      L.polyline([origin, routes[0].geometry[0]], {
+    const from = routeStart === undefined ? origin : routeStart;
+    if (from && routes[0]?.geometry[0])
+      L.polyline([from, routes[0].geometry[0]], {
         color: css.getPropertyValue("--text-2").trim(),
         weight: 2,
         dashArray: "4 6",
       }).addTo(layer);
     if (bounds.isValid())
       map.current.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
-  }, [routes, origin, theme]);
+  }, [routes, origin, routeStart, theme]);
   // A guided walk: numbered pins, the legs along the walking graph, the current stop highlighted.
   useEffect(() => {
     const layer = tourLayer.current;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { safeUrl } from "../api";
-import { eventWhen, groupCost, itemTiming } from "../lib/format";
+import { clockAt, eventWhen, groupCost, itemTiming } from "../lib/format";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
@@ -154,16 +154,31 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
               </p>
             ))}
             {m.data?.mini_route && (
-              <div className="mini-route">
+              <div className={"mini-route" + (m.data.mini_route.finish && !m.data.mini_route.finish.fits ? " late" : "")}>
                 <strong>
                   <Icon name="route" />{" "}
-                  {t("route.title", {
-                    n: m.data.mini_route.stops.length,
-                    total: Math.round(m.data.mini_route.total_duration_min),
-                    budget: m.data.mini_route.budget_minutes ?? m.data.minutes,
-                  })}
+                  {m.data.mini_route.finish
+                    ? t(m.data.mini_route.finish.loop ? "route.loopTitle" : "route.finishTitle", {
+                        label: m.data.mini_route.finish.label,
+                        n: m.data.mini_route.stops.length,
+                        at: clockAt(m.data.mini_route.session?.start_at, m.data.mini_route.finish.arrival_offset_min),
+                      })
+                    : t("route.title", {
+                        n: m.data.mini_route.stops.length,
+                        total: Math.round(m.data.mini_route.total_duration_min),
+                        budget: m.data.mini_route.budget_minutes ?? m.data.minutes,
+                      })}
                 </strong>
-                <small>{t("route.walk", { n: Math.round(m.data.mini_route.walk_duration_min ?? 0) })}</small>
+                <small>
+                  {m.data.mini_route.finish
+                    ? m.data.mini_route.finish.fits
+                      ? t("route.finishWalk", {
+                          n: Math.round(m.data.mini_route.walk_duration_min ?? 0),
+                          slack: Math.max(0, Math.round(m.data.mini_route.finish.slack_min)),
+                        })
+                      : t("route.late", { n: Math.round(m.data.mini_route.finish.leg.duration_min) })
+                    : t("route.walk", { n: Math.round(m.data.mini_route.walk_duration_min ?? 0) })}
+                </small>
                 <button className="icon-button" onClick={() => walk.showPlan(m.data!.mini_route!)}>
                   <Icon name="map" />
                   {t("route.show")}

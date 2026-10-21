@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { request, safeUrl, type Poi } from "../api";
-import { categoryLabel, eventWhen, groupCost, hoursLabel, money, ruleLabel, ruleValue, tariff } from "../lib/format";
+import { categoryLabel, clockAt, eventWhen, groupCost, hoursLabel, money, ruleLabel, ruleValue, tariff } from "../lib/format";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
 import type { Walk } from "../useWalk";
 import { Explanation } from "./Explanation";
 import { PlaceQA } from "./PlaceQA";
+import { useSheetSize } from "./SheetHandle";
 
 function SourceLink({ url, children }: { url?: string; children?: ReactNode }) {
   const t = useT();
@@ -241,6 +242,7 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
   const [photoLoaded, setPhotoLoaded] = useState(false);
   const [zoom, setZoom] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const sheet = useSheetSize("place");
   useEffect(() => {
     setPhotoLoaded(false);
     setZoom(false);
@@ -258,7 +260,13 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
   );
   const cost = groupCost(p, t, loc);
   return (
-    <section className="detail-sheet place-card" aria-label={t("detail.region")}>
+    <section
+      ref={sheet.ref}
+      style={sheet.style}
+      className={"detail-sheet place-card" + (sheet.folded ? " folded" : "")}
+      aria-label={t("detail.region")}
+    >
+      {sheet.handle}
       {photo.status !== "none" && (
         <figure className={"pc-media " + photo.status + (photoLoaded ? " loaded" : "")}>
           {/* 2GIS main photos are 1440x1440 squares: show the whole photo over a blurred
@@ -386,34 +394,128 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
 
 export function ItinerarySheet({ walk }: { walk: Walk }) {
   const t = useT();
-  const plan = walk.plan;
+  const { plan, trip } = walk;
+  const sheet = useSheetSize("itinerary");
   if (!plan) return null;
+  const finish = plan.finish;
+  const start = plan.session?.start_at;
+  const finishName = finish ? (finish.loop ? t("plan.backToStart") : finish.label) : "";
+  const live = !!trip && plan.kind === "mini_route";
   return (
-    <section className="detail-sheet itinerary" aria-label={t("plan.region")}>
+    <section
+      ref={sheet.ref}
+      style={sheet.style}
+      className={"detail-sheet itinerary" + (sheet.folded ? " folded" : "")}
+      aria-label={t("plan.region")}
+    >
+      {sheet.handle}
       <div className="sheet-top">
-        <span>{plan.kind === "mini_route" ? t("plan.mini") : t("plan.yours")}</span>
+        <span>{finish ? t("plan.finishMini") : plan.kind === "mini_route" ? t("plan.mini") : t("plan.yours")}</span>
         <button aria-label={t("detail.close")} onClick={() => walk.setPlan(undefined)}>
           <Icon name="x" />
         </button>
       </div>
-      <h2>{plan.stops.length ? t("plan.total", { n: Math.ceil(plan.total_duration_min) }) : t("plan.notFound")}</h2>
+      <h2>
+        {finish
+          ? t(finish.loop ? "plan.loopTitle" : "plan.finishTitle", { label: finish.label, at: clockAt(start, finish.arrival_offset_min) })
+          : plan.stops.length
+            ? t("plan.total", { n: Math.ceil(plan.total_duration_min) })
+            : trip?.history.length
+              ? t("plan.ended")
+              : t("plan.notFound")}
+      </h2>
+      {finish && (
+        <p className={"finish-line" + (finish.fits ? "" : " late")}>
+          {finish.fits
+            ? t("plan.finishLine", {
+                at: clockAt(start, finish.arrival_offset_min),
+                deadline: clockAt(start, plan.budget_minutes ?? finish.arrival_offset_min),
+                slack: Math.max(0, Math.round(finish.slack_min)),
+              })
+            : t("plan.finishLate", {
+                walk: Math.round(finish.leg.duration_min),
+                deadline: clockAt(start, plan.budget_minutes ?? 0),
+              })}
+        </p>
+      )}
+      {!!trip?.history.length && (
+        <ul className="trip-history" aria-label={t("plan.history")}>
+          {trip.history.map((h) => (
+            <li key={h.id + h.status} className={h.status}>
+              <Icon name={h.status === "visited" ? "check" : "x"} />
+              <span>{h.name}</span>
+              <small>{t(h.status === "visited" ? "plan.done" : "plan.closed")}</small>
+            </li>
+          ))}
+        </ul>
+      )}
       <ol>
         {plan.stops.map((p, i) => (
-          <li key={p.poi_id}>
+          <li key={p.poi_id} className={live && i === 0 ? "next" : undefined}>
+            {live && i === 0 && <em className="next-badge">{t("plan.next")}</em>}
             <strong>{p.display_name}</strong>
             <span>
-              {t("plan.leg", { walk: Math.ceil(plan.legs[i].duration_min), visit: p.suggested_visit_duration_min })}
+              {t("plan.leg", { walk: Math.ceil(plan.legs[i]?.duration_min ?? 0), visit: p.suggested_visit_duration_min })}
+              {start && p.arrival_offset_min != null && " · " + t("plan.arrive", { at: clockAt(start, p.arrival_offset_min) })}
             </span>
             <small>{hoursLabel(p, t)}</small>
           </li>
         ))}
+        {finish && (
+          <li className="finish-stop">
+            <strong>
+              <Icon name="map-pin" /> {finishName}
+            </strong>
+            <span>
+              {t("plan.finishLeg", { walk: Math.ceil(finish.leg.duration_min) })}
+              {start && " · " + t("plan.arrive", { at: clockAt(start, finish.arrival_offset_min) })}
+            </span>
+          </li>
+        )}
       </ol>
+      {live && (
+        <div className="trip-controls">
+          {trip.note && (
+            <p className="trip-note" role="status">
+              {trip.note}
+            </p>
+          )}
+          <strong>{t("trip.title")}</strong>
+          <div className="trip-buttons">
+            {!!plan.stops.length && (
+              <button className="primary icon-button" disabled={walk.busy} onClick={walk.visitStop}>
+                <Icon name="check" />
+                {t("trip.visited")}
+              </button>
+            )}
+            {!!plan.stops.length && (
+              <button className="icon-button" disabled={walk.busy} onClick={() => walk.replan("closed")}>
+                <Icon name="x" />
+                {t("trip.closed")}
+              </button>
+            )}
+            <button className="icon-button" disabled={walk.busy} onClick={() => walk.replan("delay")}>
+              <Icon name="clock" />
+              {t("trip.delay")}
+            </button>
+            <button className="icon-button" disabled={walk.busy} onClick={() => walk.replan("cold")} aria-pressed={trip.flags.includes("indoor")}>
+              <Icon name="cloud-snow" />
+              {t("trip.cold")}
+            </button>
+            <button className="icon-button" disabled={walk.busy} onClick={() => walk.replan("tired")} aria-pressed={trip.flags.includes("rest")}>
+              <Icon name="footprints" />
+              {t("trip.tired")}
+            </button>
+          </div>
+          <small>{t("trip.hint")}</small>
+        </div>
+      )}
       {plan.warnings.map((w) => (
         <p key={w} className="warning">
           {w}
         </p>
       ))}
-      {plan.legs[0]?.warnings.map((w) => (
+      {(plan.legs[0] ?? finish?.leg)?.warnings.map((w) => (
         <small key={w}>{w}</small>
       ))}
     </section>

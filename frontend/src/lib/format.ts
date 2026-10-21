@@ -94,3 +94,11 @@ export function rejectedLabel(r: Rejected, t: T): string {
   if (Array.isArray(r.params.attrs)) params.attrs = r.params.attrs.join(", ");
   return has("why." + r.code) ? t("why." + r.code, params) : r.code;
 }
+
+/** "HH:MM" of `offset` minutes after an ISO start ("2026-10-22T13:00+05:00"), in the start's own time zone. */
+export function clockAt(start: string | undefined, offset: number): string {
+  const m = /T(\d{2}):(\d{2})/.exec(start || "");
+  if (!m) return "";
+  const total = (((+m[1] * 60 + +m[2] + Math.round(offset)) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
