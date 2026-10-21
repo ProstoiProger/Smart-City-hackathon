@@ -2447,3 +2447,52 @@ tbody th {
   width: 20px;
   height: 20px;
 }
+
+/* Plan B under a route stop. */
+.itinerary li .backup,
+.backup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--link);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+}
+.itinerary li .backup.over {
+  border-left-color: var(--warn-border);
+}
+.itinerary li .backup span {
+  margin: 0;
+}
+.itinerary li .backup button {
+  font-size: var(--fs-micro);
+  padding: 4px 9px;
+}
+.meeting-meta {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+/* Meeting: where each person starts. */
+.person-wrap {
+  background: transparent;
+}
+.person-pin {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  padding: 3px 9px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #6d28d9;
+  color: #fff;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--shadow-1);
+}

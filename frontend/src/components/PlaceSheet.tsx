@@ -459,6 +459,23 @@ export function ItinerarySheet({ walk }: { walk: Walk }) {
               {start && p.arrival_offset_min != null && " · " + t("plan.arrive", { at: clockAt(start, p.arrival_offset_min) })}
             </span>
             <small>{hoursLabel(p, t)}</small>
+            {p.backup && (
+              <div className={"backup" + (p.backup.fits ? "" : " over")}>
+                <span>
+                  {t(p.backup.kind === "indoor" ? "plan.backupIndoor" : "plan.backup", {
+                    name: p.backup.display_name.split(",")[0],
+                    walk: p.backup.walk_from_stop_min,
+                  })}{" "}
+                  · {p.backup.fits ? t("plan.backupFits") : t("plan.backupOver", { n: Math.max(1, p.backup.delta_min) })}
+                </span>
+                {live && (
+                  <button className="icon-button" disabled={walk.busy} onClick={() => walk.replan("swap", p)}>
+                    <Icon name="rotate-ccw" />
+                    {t("trip.swap")}
+                  </button>
+                )}
+              </div>
+            )}
           </li>
         ))}
         {finish && (

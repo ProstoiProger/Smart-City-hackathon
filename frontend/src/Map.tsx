@@ -24,6 +24,7 @@ export default function CityMap({
   finish,
   focusPoint,
   originFocus = 0,
+  people,
   picking,
   onSelect,
   onOrigin,
@@ -44,6 +45,8 @@ export default function CityMap({
   focusPoint?: [number, number] | null;
   /** Changes when the user picks a new start: the map flies to `origin`. */
   originFocus?: number;
+  /** A company meeting: where each person starts. */
+  people?: { name: string; latitude: number; longitude: number }[];
   picking: boolean;
   onSelect: (p: Poi) => void;
   onOrigin: (p: [number, number]) => void;
@@ -59,7 +62,8 @@ export default function CityMap({
     paths = useRef<L.LayerGroup | null>(null),
     tourLayer = useRef<L.LayerGroup | null>(null),
     start = useRef<L.Marker | null>(null),
-    end = useRef<L.Marker | null>(null);
+    end = useRef<L.Marker | null>(null),
+    crowd = useRef<L.LayerGroup | null>(null);
   const focus = useRef(focusPoint ?? null);
   focus.current = focusPoint ?? null;
   const recenter = useRef<HTMLButtonElement | null>(null);
@@ -121,6 +125,7 @@ export default function CityMap({
     }).addTo(m);
     paths.current = L.layerGroup().addTo(m);
     tourLayer.current = L.layerGroup().addTo(m);
+    crowd.current = L.layerGroup().addTo(m);
     m.on("click", (e: L.LeafletMouseEvent) => {
       if (handlers.current.picking)
         handlers.current.onOrigin([e.latlng.lat, e.latlng.lng]);
@@ -209,6 +214,27 @@ export default function CityMap({
       }).addTo(map.current);
     }
   }, [origin, labels.start, labels.startName]);
+  // Meeting: a small named pin where each person starts.
+  useEffect(() => {
+    const layer = crowd.current;
+    layer?.clearLayers();
+    if (!layer || !people?.length) return;
+    for (const p of people) {
+      const label = document.createElement("span");
+      label.textContent = p.name;
+      L.marker([p.latitude, p.longitude], {
+        icon: L.divIcon({
+          className: "person-wrap",
+          html: `<span class="person-pin">${label.innerHTML}</span>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        }),
+        title: p.name,
+        keyboard: false,
+        zIndexOffset: 800,
+      }).addTo(layer);
+    }
+  }, [people]);
   // A start chosen by the user (landmark, map point, geolocation): fly there smoothly.
   useEffect(() => {
     if (originFocus && origin) goTo.current(origin);

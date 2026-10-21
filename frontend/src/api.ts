@@ -50,6 +50,11 @@ export interface Poi {
   estimated_visit_budget?: Price;
   suggested_visit_duration_min: number;
   arrival_offset_min?: number;
+  /** Plan B for a route stop: a place nearby of the same kind, or under a roof. */
+  backup?: Backup;
+  /** Meeting place: each person's walk from their own start. */
+  meeting?: { name: string; self: boolean; place: string; walk_min: number }[];
+  meeting_routes?: Route[];
   events?: EventMatch[];
   group_cost?: { size: number; amount: number; currency: string; basis: string };
   total_duration_min?: number;
@@ -283,6 +288,11 @@ export interface ChatResponse {
   comfort?: Comfort & { air?: Air };
   funnel?: FunnelStep[];
   rejected?: Rejected[];
+  /** The message edited the current route ("второе замени"): what changed and the new walk state. */
+  edit?: { removed: string[]; added: string[] };
+  trip_state?: ReplanResponse["state"];
+  /** A meeting place for a company with different starts. */
+  meeting?: { people: MeetingPerson[] };
 }
 export interface EventMatch {
   event_id: string;
@@ -300,6 +310,23 @@ export interface EventMatch {
   currency?: string | null;
   age_group?: string | null;
   source_url?: string;
+}
+export interface Backup {
+  poi_id: string;
+  display_name: string;
+  category: string;
+  subcategory_label?: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  walk_from_stop_min: number;
+  /** Minutes the whole walk changes by when the backup is taken. */
+  delta_min: number;
+  /** The walk still fits the budget (and the finish deadline) with the backup. */
+  fits: boolean;
+  hours_status: { status: string; label: string };
+  /** "same" kind of place, or "indoor" for an outdoor stop. */
+  kind: "same" | "indoor";
 }
 /** Where a walk ends by the end of its budget, and when the walker gets there. */
 export interface FinishInfo {
@@ -328,8 +355,10 @@ export interface TripSession {
   reserve: number;
   category?: string | null;
   group_size?: number | null;
+  /** The wish as Gemini read it; sent back so re-planning searches the same thing. */
+  intent?: Record<string, unknown> | null;
 }
-export type TripAction = "closed" | "delay" | "cold" | "tired";
+export type TripAction = "closed" | "delay" | "cold" | "tired" | "swap";
 export interface ReplanResponse {
   answer: string;
   plan: Plan | null;
@@ -340,9 +369,16 @@ export interface ReplanResponse {
     excluded: string[];
     visited: string[];
     flags: string[];
+    group_size?: number | null;
     now: string;
     remaining_min: number;
   };
+}
+export interface MeetingPerson {
+  name: string;
+  latitude: number;
+  longitude: number;
+  place: string;
 }
 export interface Plan {
   kind?: "mini_route";

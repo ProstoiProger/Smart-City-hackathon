@@ -18,10 +18,12 @@ export function MapPanel({ walk }: { walk: Walk }) {
         ? []
         : plan
           ? [...plan.legs, ...(plan.finish ? [plan.finish.leg] : [])]
-          : selected?.route
-            ? [selected.route]
-            : [],
-    [walk.tour, plan, selected],
+          : walk.meeting
+            ? ((selected ?? items[0])?.meeting_routes ?? [])
+            : selected?.route
+              ? [selected.route]
+              : [],
+    [walk.tour, plan, selected, walk.meeting, items],
   );
   // The end of a walk at another place gets its own pin; a loop ends at the start pin.
   const finish = !walk.tour && plan?.finish && !plan.finish.loop ? plan.finish : undefined;
@@ -33,9 +35,10 @@ export function MapPanel({ walk }: { walk: Walk }) {
         origin={filters.origin}
         routes={routes}
         // After a re-plan the rest of the walk starts where the walker is, not at the start pin.
-        routeStart={walk.trip && plan ? walk.trip.position : filters.origin}
+        routeStart={walk.trip && plan ? walk.trip.position : walk.meeting ? null : filters.origin}
         focusPoint={walk.trip && plan ? walk.trip.position : filters.origin}
         originFocus={walk.originFocus}
+        people={walk.meeting ?? undefined}
         finish={finish && { point: [finish.latitude, finish.longitude], label: finish.label }}
         picking={filters.picking}
         onSelect={(p) => walk.selectPlace(p, false)}

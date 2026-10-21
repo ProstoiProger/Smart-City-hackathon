@@ -9,6 +9,20 @@ import type { Walk } from "../useWalk";
 import { Explanation } from "./Explanation";
 import { GroupFitList, GroupPanel } from "./GroupPanel";
 import { ComfortNote, WhyNot } from "./Insights";
+import type { Backup } from "../api";
+
+function BackupLine({ b }: { b: Backup }) {
+  const t = useT();
+  return (
+    <small className="backup-meta">
+      {t(b.kind === "indoor" ? "plan.backupIndoor" : "plan.backup", {
+        name: b.display_name.split(",")[0],
+        walk: b.walk_from_stop_min,
+      })}{" "}
+      · {b.fits ? t("plan.backupFits") : t("plan.backupOver", { n: Math.max(1, b.delta_min) })}
+    </small>
+  );
+}
 
 const SUGGESTIONS = ["chat.s1", "chat.s2", "chat.s3"];
 const VOICE_ERRORS = { denied: "chat.voiceDenied", "no-speech": "chat.voiceNoSpeech", failed: "chat.voiceFailed" } as const;
@@ -197,9 +211,17 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
                     })}
                   </span>
                 )}
-                {!m.data?.mini_route && <span className="route-meta">{itemTiming(p, t)}</span>}
+                {!m.data?.mini_route && !p.meeting && <span className="route-meta">{itemTiming(p, t)}</span>}
+                {p.meeting && (
+                  <span className="route-meta meeting-meta">
+                    <Icon name="users" /> {p.meeting.map((x) => t("meet.walk", { name: x.name, n: x.walk_min })).join(" · ")}
+                  </span>
+                )}
                 <strong>{p.display_name}</strong>
                 <Explanation p={p} />
+                {m.data?.mini_route?.stops[i]?.backup && (
+                  <BackupLine b={m.data.mini_route.stops[i].backup!} />
+                )}
                 {!!p.group_fit?.length && <GroupFitList fit={p.group_fit} />}
                 {p.comfort && (
                   <small className={"comfort-tag " + p.comfort}>

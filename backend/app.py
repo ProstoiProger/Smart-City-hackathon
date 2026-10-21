@@ -40,7 +40,9 @@ from .group import MAX_MEMBERS, MIN_MEMBERS, clean_members, group_pool
 from .photos import main_photo
 from . import tts
 from . import trip
-from .intent import Classifier
+from .intent import Classifier, read_edit, read_people
+from .meet import MEET_INTENT, meet, meeting_line, people_from_text
+from .trip import add_backups, backup_text, read_edit_rules
 from .trip import DEFAULT_FINISH_RESERVE_MIN, finish_text, stamp_finish
 
 city = None
@@ -216,6 +218,8 @@ class ChatRequest(SearchRequest):
     finish_loop: bool = False
     # Spare minutes at the finish; None: from the text or the default.
     finish_reserve_min: int | None = Field(None, ge=0, le=60)
+    # The walk on screen: a message may edit it ("второе замени", "без кафе").
+    route: "RouteContext | None" = None
 
     @model_validator(mode="after")
     def validate_finish(self):
@@ -234,19 +238,17 @@ class FinishPoint(Point):
     loop: bool = False
 
 
-class ReplanRequest(BaseModel):
-    """The walk state the client keeps, plus what just happened."""
+class RouteContext(BaseModel):
+    """The walk the client keeps: the plan's session and what happened on the way."""
 
     query: str = Field("", max_length=1500)
     start_at: str
+    start: Point | None = None
     budget: int = Field(ge=10, le=240)
     elapsed: float = Field(0, ge=0, le=480)
     position: Point
     finish: FinishPoint | None = None
     reserve: int = Field(0, ge=0, le=60)
-    action: Literal["closed", "delay", "cold", "tired"]
-    stop_id: str | None = Field(None, max_length=200)
-    delay_min: int = Field(15, ge=5, le=60)
     keep: list[str] = Field(default_factory=list, max_length=3)
     visited: list[str] = Field(default_factory=list, max_length=30)
     excluded: list[str] = Field(default_factory=list, max_length=30)
@@ -267,6 +269,19 @@ class ReplanRequest(BaseModel):
         except (ValueError, TypeError):
             raise ValueError("Неверная дата: требуется ISO 8601")
         return self
+
+
+class ReplanRequest(RouteContext):
+    """The walk state plus what just happened: a closed stop, a delay, cold, tiredness,
+    or plan B taken instead of a stop ("swap")."""
+
+    action: Literal["closed", "delay", "cold", "tired", "swap"]
+    stop_id: str | None = Field(None, max_length=200)
+    replacement_id: str | None = Field(None, max_length=200)
+    delay_min: int = Field(15, ge=5, le=60)
+
+
+ChatRequest.model_rebuild()
 
 
 class PlanRequest(Context):
@@ -470,12 +485,167 @@ def _interleave(lists):
     return out
 
 
+def route_items(route, lang):
+    """Route stops as chat cards, with data-based "why" and "what to do"."""
+    items = []
+    for stop in route["stops"]:
+        item = dict(stop)
+        pick = explain_from_data(stop, lang, stop.get("suggested_visit_duration_min"))
+        item.update(why=pick["why"], what_to_do=pick["what_to_do"], events=[], warnings=list(stop.get("warnings") or []))
+        item["explanation"] = {
+            "generated": False, "template": True, "basis": pick["basis"],
+            "note": "«Почему» и «что делать» собраны по шаблону из данных места, без генерации; «что делать» — идея, а не проверенный факт.",
+        }
+        items.append(item)
+    return items
+
+
+def edit_answer(req, provider, lang):
+    """The current route changed by the message, or None when the message is a new request."""
+    ctx = req.route
+    names = [
+        ((city.byid[i].get("display_name") or "").split(",")[0], city.byid[i].get("category"))
+        for i in ctx.keep
+        if i in city.byid
+    ]
+    said_group = detect_group(req.query) if GROUP_NUMBER.search(req.query) or any(
+        w in req.query.casefold() for w in GROUP_WORDS
+    ) else None
+    ops = read_edit(classifier, req.query, names) if provider == "gemini" else None
+    source = "Gemini"
+    if ops is None:
+        ops, source = read_edit_rules(req.query, len(names), said_group), "по словам запроса"
+    if not ops["is_edit"]:
+        return None
+    intent = classifier.clean(ctx.intent) if ctx.intent else None
+    out = trip.edit(city, ctx, ops, intent, lang)
+    route = out["plan"]
+    group = out["state"]["group_size"]
+    if route:
+        route["session"] = {
+            "query": ctx.query, "start_at": ctx.start_at,
+            "start": ctx.start.model_dump() if ctx.start else ctx.position.model_dump(),
+            "budget": ctx.budget, "finish": ctx.finish.model_dump() if ctx.finish else None,
+            "reserve": ctx.reserve, "category": ctx.category, "group_size": group, "intent": ctx.intent,
+        }
+    items = route_items(route, lang) if route else []
+    start = ctx.start or ctx.position
+    spoken = spoken_from_data(items, lang, route, (start.latitude, start.longitude)) if items else out["answer"]
+    return {
+        "answer": out["answer"],
+        "spoken": spoken,
+        "items": items,
+        "provider_requested": provider,
+        "provider_used": "offline",
+        "warnings": [],
+        "origin": {"latitude": start.latitude, "longitude": start.longitude, "label": None},
+        "steps": [{"action": "Правка маршрута", "result": f"разбор: {source}; время, часы работы и пешие отрезки проверены заново"}],
+        "mini_route": route,
+        "events": [],
+        "group": {"size": group, "from_text": True} if group and group > 1 else None,
+        "considered": [
+            {"label": "Правка маршрута", "value": out["answer"].split(" Новый план")[0] + f" (разбор: {source})"},
+            {"label": "Осталось времени", "value": f"{max(0, round(out['state']['remaining_min']))} мин"},
+        ],
+        "when": ctx.start_at,
+        "minutes": ctx.budget,
+        "generated_facts": False,
+        "generated_text": False,
+        "edit": out["changes"],
+        "trip_state": out["state"],
+    }
+
+
+SELF_NAMES = {"вы", "я", "мы", "сіз", "мен", "біз", "you", "me", "i", "we"}
+
+
+def meeting_answer(req, provider, lang):
+    """Where a company with different starts should meet, or None when the text names
+    fewer than two people with a place."""
+    origin = req.origin()
+    people, wish, source, lost = None, "", "по словам запроса", []
+    read = read_people(req.query) if provider == "gemini" else None
+    if read and read["is_meeting"]:
+        people, wish, source = [], read["wish"], "Gemini"
+        for person in read["people"]:
+            is_self = person["name"].casefold() in SELF_NAMES
+            spot = next((m for m in city.mentions(person["place"]) if m["point"]), None) if person["place"] else None
+            if spot:
+                people.append({"name": "Вы" if is_self else person["name"], "self": is_self, "point": spot["point"], "place": spot["label"]})
+            elif is_self and origin:
+                people.append({"name": "Вы", "self": True, "point": origin, "place": "точка старта"})
+            else:
+                lost.append(f"{person['name']}: место «{person['place'] or 'не названо'}» не найдено")
+    if people is None or len(people) < 2:
+        people = people_from_text(city, req.query, origin)
+        source = "по словам запроса"
+        if not wish:
+            names = {tokens(p["name"])[0][0] for p in people if not p["self"] and tokens(p["name"])}
+            rest = content_query(without_tokens(req.query, [i for m in city.mentions(req.query) for i in m["tokens"]]))
+            rest = " ".join(w for w in rest.split() if w not in names)
+            wish = rest if read_intents(rest)[0] else ""
+    if len(people) < 2:
+        return None
+    intent = classifier.classify(wish) if provider == "gemini" and wish else None
+    found = meet(city, people, wish, intent, req.when, req.no_steps, req.max_snap_m)
+    if found["lost"]:
+        text = "Не получилось проложить пеший путь для: " + ", ".join(found["lost"]) + ". Уточните, где они, или выберите точку ближе к дорожкам."
+        items = []
+    else:
+        items = found["items"]
+        for item in items:
+            pick = explain_from_data(item, lang, item.get("suggested_visit_duration_min"))
+            item.update(why=f"Всем недалеко: {meeting_line(item)}. " + pick["why"], what_to_do=pick["what_to_do"], events=[])
+            item["explanation"] = {
+                "generated": False, "template": True, "basis": ["place_data", "route_time", "opening_hours"],
+                "note": "Время пути каждого — по пешеходному графу OSM от его точки; «что делать» — идея, а не проверенный факт.",
+            }
+        text = (
+            f"Удобнее всего встретиться в «{items[0]['display_name'].split(',')[0]}»: {meeting_line(items[0])} пешком."
+            + (" Ещё варианты — ниже." if len(items) > 1 else "")
+            if items
+            else "Места, до которого всем можно дойти пешком и которое открыто к приходу, не нашлось. Попробуйте другое время или уточните, что ищете."
+        )
+    return {
+        "answer": text,
+        "spoken": text,
+        "items": items,
+        "provider_requested": provider,
+        "provider_used": "offline",
+        "warnings": lost,
+        "origin": None,
+        "steps": [{"action": "Место встречи", "result": f"{len(people)} чел.; пешие пути от точки каждого по графу OSM; самый долгий путь короче — место выше"}],
+        "mini_route": None,
+        "events": [],
+        "group": {"size": len(people), "from_text": True},
+        "considered": [
+            {"label": "Кто где", "value": "; ".join(f"{p['name']} — {p['place']}" for p in people) + f" (разбор: {source})"},
+            {"label": "Место встречи", "value": wish or "по умолчанию — кафе и кофейни; напишите, если нужно другое"},
+            {"label": "Как выбрано", "value": "сначала короче самый долгий путь, потом меньше общий; открыто к приходу"},
+        ],
+        "meeting": {"people": [{"name": p["name"], "latitude": p["point"][0], "longitude": p["point"][1], "place": p["place"]} for p in people]},
+        "when": req.when,
+        "minutes": req.minutes,
+        "generated_facts": False,
+        "generated_text": False,
+    }
+
+
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     provider = req.provider or setting("LLM_PROVIDER", "offline")
     if provider not in PROVIDERS:
         provider = "offline"
     lang = language(req.query)
+
+    if req.route is not None:
+        answer = edit_answer(req, provider, lang)
+        if answer:
+            return answer
+    if MEET_INTENT.search(req.query):
+        answer = meeting_answer(req, provider, lang)
+        if answer:
+            return answer
 
     # Where. A place named as the start ("я у Хан Шатыра") wins over the map point; a
     # place named as the goal ("сходить в Хан Шатыр") keeps the map start and becomes
@@ -769,6 +939,7 @@ def chat(req: ChatRequest):
     start_at = parse_when(when)
     if route:
         stamp_finish(route, start_at)
+        add_backups(city, route, origin, start_at, minutes, reserve, req.no_steps, req.max_snap_m)
         # What the client sends back to re-plan on the go ("здесь закрыто", "устали").
         route["session"] = {
             "query": effective_query,

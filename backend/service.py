@@ -1000,6 +1000,7 @@ class City:
         reserve=0,
         sizes=None,
         max_leg=None,
+        require=(),
     ):
         """Best ordered set of up to `size` candidates that fits the time budget together.
 
@@ -1014,13 +1015,17 @@ class City:
         of the budget: the last leg to it and `reserve` spare minutes count too, so the
         stops are chosen for the whole way start -> stops -> finish. `sizes` lists the stop
         counts to try in order (default: `size`, then 2); `max_leg` caps each walk between
-        stops (tired or cold walkers).
+        stops (tired or cold walkers). `require` lists poi_ids every route must include
+        ("первое место оставь"): they are moved to the front of the candidates.
         """
         if not origin:
             return None
+        required = set(require)
+        # Pinned stops always take part, whatever their rank among the candidates.
+        ordered = [c for c in candidates if c["poi_id"] in required] + [c for c in candidates if c["poi_id"] not in required]
         cands = [
             self.byid[c["poi_id"]]
-            for c in candidates[:pool]
+            for c in ordered[: pool + len(required)]
             if c["poi_id"] in self.byid and not closure(self.byid[c["poi_id"]])
         ]
         sizes = tuple(sizes or (size, 2))
@@ -1101,6 +1106,8 @@ class City:
                 if not varied(seq):
                     continue
                 if need and not need <= {cands[j - 1].get("category") for j in seq}:
+                    continue
+                if required and not required <= {cands[j - 1]["poi_id"] for j in seq}:
                     continue
                 result = walk_through(seq, stay) or walk_through(seq, short)
                 if result is None:

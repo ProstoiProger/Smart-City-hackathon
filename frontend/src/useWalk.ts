@@ -8,6 +8,7 @@ import {
   type Meta,
   type Plan,
   type Poi,
+  type MeetingPerson,
   type Provider,
   type ReplanResponse,
   type TripAction,
@@ -78,6 +79,8 @@ export function useWalk() {
   const [trip, setTrip] = useState<Trip | null>(null);
   // Bumped when the user changes the start themself: the map flies there.
   const [originFocus, setOriginFocus] = useState(0);
+  // People of a meeting question, drawn on the map with their walks to the place.
+  const [meeting, setMeeting] = useState<MeetingPerson[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -122,6 +125,7 @@ export function useWalk() {
     setError("");
     setPlan(undefined);
     setTrip(null);
+    setMeeting(null);
     setSelected(undefined);
     try {
       const data = await request<{ items: Poi[]; warnings: string[] }>(
@@ -173,6 +177,8 @@ export function useWalk() {
         mini_route: miniRoute ? true : null,
         members: members.length >= 2 ? members : undefined,
         ...finishBody(),
+        // The walk on screen: the message may edit it ("второе замени", "без кафе").
+        route: routeContext(),
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
       setItems(data.items);
@@ -180,7 +186,23 @@ export function useWalk() {
       // A mini-route (or the way to a finish) goes straight onto the map as the current itinerary.
       const route = data.mini_route;
       setPlan(route && (route.stops.length || route.finish) ? route : undefined);
-      setTrip(route?.session ? freshTrip(route.session) : null);
+      setMeeting(data.meeting?.people ?? null);
+      if (data.trip_state && trip && route?.session) {
+        // An edit continues the same walk: history, visited stops and time spent stay.
+        const st = data.trip_state;
+        setTrip({
+          ...trip,
+          session: route.session,
+          elapsed: st.elapsed,
+          position: [st.position.latitude, st.position.longitude],
+          visited: st.visited,
+          excluded: st.excluded,
+          flags: st.flags,
+          note: data.answer,
+        });
+      } else {
+        setTrip(route?.session ? freshTrip(route.session) : null);
+      }
       if (data.origin) {
         setOrigin([data.origin.latitude, data.origin.longitude]);
         if (data.origin.label) setOriginLabel(data.origin.label);
@@ -191,6 +213,23 @@ export function useWalk() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function routeContext() {
+    if (!trip || !plan || plan.kind !== "mini_route") return undefined;
+    return {
+      ...trip.session,
+      elapsed: trip.elapsed,
+      position: { latitude: trip.position[0], longitude: trip.position[1] },
+      keep: plan.stops.map((p) => p.poi_id),
+      visited: trip.visited,
+      excluded: trip.excluded,
+      flags: trip.flags,
+      open_only: openOnly,
+      strict_amenities: strict,
+      no_steps: noSteps,
+      max_snap_m: snapRadius,
+    };
   }
 
   function finishBody() {
@@ -220,7 +259,7 @@ export function useWalk() {
   }
 
   /** The rest of the walk after an event; the finish and its deadline stay. */
-  async function replan(action: TripAction) {
+  async function replan(action: TripAction, swap?: Poi) {
     if (!plan || !trip || busy) return;
     const next = plan.stops[0];
     const closing = action === "closed" && next;
@@ -234,7 +273,8 @@ export function useWalk() {
         position: closing
           ? { latitude: next.latitude, longitude: next.longitude }
           : { latitude: trip.position[0], longitude: trip.position[1] },
-        stop_id: closing ? next.poi_id : null,
+        stop_id: closing ? next.poi_id : swap ? swap.poi_id : null,
+        replacement_id: swap?.backup?.poi_id ?? null,
         keep: plan.stops.map((p) => p.poi_id),
         visited: trip.visited,
         excluded: trip.excluded,
@@ -374,7 +414,7 @@ export function useWalk() {
     chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
     afishaState: { afisha, setAfisha, openAfisha },
     tour, setTour,
-    trip, visitStop, replan, originFocus,
+    trip, visitStop, replan, originFocus, meeting,
     search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };
 }
