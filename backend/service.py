@@ -27,6 +27,22 @@ LABELS = {
     "infrastructure": "Инфраструктура",
     "other": "Другие места",
 }
+ART_INTENT = (
+    r"рисова|рисун|порисов|живопис|скетч|этюд|пленэр|художеств|изостуд|акварел|"
+    r"сурет\s*сал|суретш|\bdraw|\bpaint|sketch|watercolou?r"
+)
+# Text that marks a place as about art, not just "scenic" or a cooking master class.
+ART_PLACE = re.compile(r"художеств|искусств|картин|\bарт\b|арт-|\bart\b|галере|gallery|сурет", re.I)
+ART_SUBCATEGORIES = {"gallery", "arts_centre"}
+# Drawing outdoors ("порисовать на природе"): parks before galleries.
+ART_OUTDOORS = r"природ|на\s+улиц|пленэр|этюд|на\s+свеж\w+\s+воздух|в\s+парк|табиғат|outdoor|outside|plein\s+air"
+# A kind of place named in the request: its category, and that kind ranks first in it
+# ("хочу в театр" is a theatre, not any culture place nearby).
+KIND_INTENTS = [
+    (r"театр|спектакл|\bопер(?:а|у|ы|е|ой|ный|ного)\b|\bбалет|филармон|\btheat|\bopera\b|\bballet", ["culture"], {"theatre", "concert_hall"}),
+    (r"\bкино\b|кинотеатр|\bфильм|\bcinema|\bmovie|киноға", ["entertainment"], {"cinema"}),
+    (r"\bцирк|\bcircus", ["entertainment"], {"circus"}),
+]
 ALIASES = [
     # Food: venues and words for eating ("покушать корейскую кухню"); not "еду" = "I am going".
     (r"каф|коф|ресторан|поесть|покушать|кушать|поужина|пообеда|позавтрака|\bобед|\bужин|\bзавтрак|перекус|\bеда\b|\bеды\b|\bеду\s+(?:вкусн|попробова)|кухн|тамақ|асхана|cafe|coffee|restaurant|\bfood|\beat\b|cuisine|lunch|dinner|breakfast", ["food_drink"]),
@@ -35,6 +51,10 @@ ALIASES = [
     (r"реб[её]н|деть|детск|бала|kids", ["children", "entertainment", "culture"]),
     (r"турис|достопр|посмотр|көрікті|tourist", ["sightseeing", "culture"]),
     (r"ноч|түн|\bnight", ["nightlife", "entertainment"]),
+    # Drawing and painting: no art studios in the data, so galleries and art centres
+    # (some hold master classes) and scenic parks for sketching outdoors.
+    (ART_INTENT, ["culture", "nature"]),
+    *((rx, cats) for rx, cats, _ in KIND_INTENTS),
 ]
 # "Something unusual" names no category; used only when nothing more specific is asked
 # ("түнде қызықты" stays a night request).
@@ -501,16 +521,21 @@ class City:
         max_walk_min=None,
         comfort=None,
         trace=None,
+        intent=None,
     ):
+        """`intent` is the request read by Gemini (backend/intent.py); without it the
+        rules below read the categories, kinds and amenities from the text."""
         # Lexical scores ignore filler words: "хочу" must not find "Хочу хинкали".
         if q.strip() and not tokens(q):
             return []  # symbols only, nothing to search for
-        text = content_query(q)
+        # The model's keywords replace the raw wording for the lexical part:
+        # "хочу рисовать" is searched as "галерея искусств", not by the letters of "рисовать".
+        text = content_query(intent["keywords"]) if intent else content_query(q)
         scores = self.index.scores(text)
         named = self.named_ids(q) if q else set()
         group = group_size if group_size and group_size >= 3 else None
         query = q.casefold()
-        preferred, wanted = read_intents(q)
+        preferred, wanted = (set(intent["categories"]), list(intent["amenities"])) if intent else read_intents(q)
         if weather_widened(preferred, comfort, category):
             preferred = preferred | {"culture"}
         child_room = bool(
@@ -526,7 +551,18 @@ class City:
         if re.search(r"детск.{0,8}меню|балалар.{0,10}мәзір", query):
             family_requirements.append("меню")
         need_quiet = "quiet" in wanted
-        wants_coffee = bool(re.search(r"коф|coffee|кофе|кафе", query)) and not re.search(r"кофейн\w*\s+(?:нет|не)", query)
+        if intent:
+            # The model already named the kinds of places; the word rules below stay off.
+            wants_art = art_outdoors = coffee_word = wants_coffee = False
+            kinds = set(intent["subcategories"])
+            setting_wish = intent["setting"]
+        else:
+            wants_art = bool(re.search(ART_INTENT, query))
+            art_outdoors = wants_art and bool(re.search(ART_OUTDOORS, query))
+            kinds = set().union(*(subs for rx, _, subs in KIND_INTENTS if re.search(rx, query)))
+            coffee_word = bool(re.search(r"коф|coffee", query))
+            wants_coffee = coffee_word or bool(re.search(r"кафе|\bcafe", query))
+            setting_wish = "any"
         need_free = bool(re.search(r"бесплат|тегін|\bfree\b", query))
         # Strict mode filters on amenities a visitor relies on; kids/view only rank.
         strict_attrs = [
@@ -581,9 +617,26 @@ class City:
                 if p.get("category") not in preferred and p["poi_id"] not in named:
                     continue
                 score += 0.3
+            if kinds and p.get("subcategory") in kinds:
+                score += 0.4
+            if wants_art:
+                # "Хочу рисовать": galleries and art centres first, then art museums;
+                # theatres and history museums are culture too but not for drawing.
+                # Outdoors ("на природе"), parks lead and galleries follow.
+                if art_outdoors and p.get("category") == "nature":
+                    score += 0.4
+                elif p.get("subcategory") in ART_SUBCATEGORIES:
+                    score += 0.15 if art_outdoors else 0.4
+                elif p.get("category") == "culture" and ART_PLACE.search(
+                    f"{p.get('display_name') or ''} {p.get('short_description') or ''}"
+                ):
+                    score += 0.25
+                elif p.get("category") == "culture":
+                    score -= 0.1
             if wants_coffee and p.get("subcategory") in COFFEE_PLACES:
-                # "Выпить кофе": a coffee shop, not the nearest doner (text scores barely differ).
-                score += 0.12
+                # "Выпить кофе": a coffee shop, not the nearest doner or a far-off tea house
+                # (text scores barely differ); "кафе" asks for any café.
+                score += 0.15 if coffee_word and p.get("subcategory") == "coffee_shop" else 0.05 if coffee_word else 0.1
             if strict_amenities:
                 missing = [
                     a for a in strict_attrs if evidence(p, a, signals)[0] not in ("confirmed", "supported")
@@ -609,6 +662,11 @@ class City:
                 if p.get("category") == "quiet_spaces":
                     score -= 0.2
             where = exposure(p)
+            # "На природе" / "под крышей" said in the request, as read by the model.
+            if setting_wish == "outdoor" and where != "indoor":
+                score += 0.15
+            elif setting_wish == "indoor" and where == "outdoor":
+                score -= 0.3
             if comfort and comfort.get("applies"):
                 if where == "outdoor":
                     score -= comfort["outdoor_penalty"]
@@ -681,8 +739,11 @@ class City:
             # Full visits rank above shortened ones; a long walk costs more than it used
             # to (0.08): a 90-minute walk to an equally good place is not a recommendation.
             travel_weight = comfort["travel_weight"] if comfort and comfort.get("applies") else 1.0
+            # Among places of the kind the request names ("театр"), the nearer one wins:
+            # a theatre 20 minutes away beats one 56 minutes away with "театр" in its name.
+            distance_weight = 0.45 if kinds and p.get("subcategory") in kinds else 0.2
             obj["search_score"] = round(
-                score - (travel / minutes) * 0.2 * travel_weight - 0.15 * (1 - stay / full_stay), 4
+                score - (travel / minutes) * distance_weight * travel_weight - 0.15 * (1 - stay / full_stay), 4
             )
             obj["exposure"] = exposure(p)
             obj["route"] = route

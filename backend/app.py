@@ -40,10 +40,12 @@ from .group import MAX_MEMBERS, MIN_MEMBERS, clean_members, group_pool
 from .photos import main_photo
 from . import tts
 from . import trip
+from .intent import Classifier
 from .trip import DEFAULT_FINISH_RESERVE_MIN, finish_text, stamp_finish
 
 city = None
 tours = None
+classifier = None
 # Assumed when a flight is mentioned but the user gave no buffers of their own: a taxi
 # from the centre to the airport and the minimum before a domestic departure.
 DEFAULT_TRANSFER_MIN = 30
@@ -92,6 +94,33 @@ EVENT_INTENT = re.compile(
     r"іс-шара|көрме|\bevent|concert|exhibition|\bshow\b|theat",
     re.I,
 )
+# What kind of event the request names, how such an event is written in the listing,
+# and which venues hold it: "хочу в театр" must not lead with a walking tour or a stand-up
+# that merely happens during the walk. Requests naming no kind ("мероприятия") take any.
+EVENT_KINDS = [
+    (r"театр|спектакл|\btheat", r"спектакл|театр|пьес|постановк|мюзикл|theat|performance|play\b", {"theatre"}),
+    (r"балет|ballet", r"балет|ballet", {"theatre"}),
+    (r"\bопер(?:а|у|ы|е|ой|ный)\b|\bopera\b", r"опер|opera", {"theatre", "concert_hall"}),
+    (r"концерт|филармон|concert", r"концерт|concert|оркестр|филармон|музык", {"concert_hall", "theatre"}),
+    (r"выставк|көрме|exhibition", r"выставк|экспозиц|exhibit|көрме", {"museum", "gallery", "arts_centre"}),
+    (r"цирк|circus", r"цирк|circus", {"circus"}),
+    (r"стендап|stand-?up", r"стендап|stand-?up", set()),
+]
+
+
+def event_fits(e, query):
+    """True when a listed event is the kind the request asks for (or names no kind)."""
+    asked = [(text_rx, subs) for rx, text_rx, subs in EVENT_KINDS if re.search(rx, query, re.I)]
+    if not asked:
+        return True
+    text = f"{e.get('name') or ''} {e.get('category') or ''}".strip()
+    if text:
+        # The listing says what it is: a walking tour starting at a theatre is not a play.
+        return any(re.search(text_rx, text, re.I) for text_rx, _ in asked)
+    venue = city.byid.get(e.get("venue_poi_id") or "") or {}
+    return any(venue.get("subcategory") in subs for _, subs in asked)
+
+
 GROUP_WORDS = {
     "вдвоём": 2, "вдвоем": 2, "втроём": 3, "втроем": 3, "вчетвером": 4, "впятером": 5, "вшестером": 6,
     "двое": 2, "трое": 3, "четверо": 4, "пятеро": 5, "шестеро": 6,
@@ -121,9 +150,10 @@ def detect_group(text):
 
 @asynccontextmanager
 async def lifespan(app):
-    global city, tours
+    global city, tours, classifier
     city = City()
     tours = tour_data.Registry(city.router)
+    classifier = Classifier(city.pois, LABELS)
     yield
 
 
@@ -221,6 +251,8 @@ class ReplanRequest(BaseModel):
     visited: list[str] = Field(default_factory=list, max_length=30)
     excluded: list[str] = Field(default_factory=list, max_length=30)
     flags: list[Literal["indoor", "rest"]] = Field(default_factory=list, max_length=2)
+    # The request as read by Gemini for the first plan (session.intent); checked again here.
+    intent: dict | None = None
     category: str | None = None
     open_only: bool = False
     strict_amenities: bool = False
@@ -341,6 +373,7 @@ def events():
 
 @app.post("/api/search")
 def search(req: SearchRequest):
+    intent = classifier.classify(req.query) if setting("LLM_PROVIDER", "offline") == "gemini" else None
     items = city.search(
         req.query,
         req.category,
@@ -353,6 +386,7 @@ def search(req: SearchRequest):
         req.strict_amenities,
         max_snap_m=req.max_snap_m,
         group_size=req.group_size,
+        intent=intent,
     )
     warnings = []
     if (
@@ -421,7 +455,8 @@ def plan(req: PlanRequest):
 @app.post("/api/replan")
 def replan(req: ReplanRequest):
     """Rest of a walk after "здесь закрыто", "+15 минут", "замёрзли" or "устали"."""
-    return trip.replan(city, req)
+    intent = classifier.clean(req.intent) if req.intent else None
+    return trip.replan(city, req, intent)
 
 
 def _interleave(lists):
@@ -568,6 +603,14 @@ def chat(req: ChatRequest):
     )
     if historical_nur_alem:
         effective_query = "интерактивный музей alem.ai"
+    # What is asked for, read by Gemini from the request without the start and the finish;
+    # without the model (no key, quota, network) the word rules read it.
+    intent = classifier.classify(effective_query) if provider == "gemini" and content_query(effective_query) else None
+
+    def asked():
+        """(categories, amenities) the request asks for."""
+        return (set(intent["categories"]), list(intent["amenities"])) if intent else read_intents(effective_query)
+
     route_mode = (
         True
         if finish and origin
@@ -580,7 +623,13 @@ def chat(req: ChatRequest):
         members = []
     group = len(members) or (req.group_size if req.group_size and req.group_size > 1 else detect_group(req.query))
     event_intent = bool(EVENT_INTENT.search(req.query))
-    cover = [] if req.category else cover_groups(req.query)
+    cover = (
+        []
+        if req.category
+        else [(LABELS[c].lower(), c) for c in intent["categories"]] if intent and intent["combine"]
+        else [] if intent
+        else cover_groups(req.query)
+    )
     nearby = bool(origin) and not route_mode and not members and wants_nearby(req.query)
     # With a finish more candidates are fetched: those off the way are dropped below.
     limit = 60 if finish and origin else 24 if route_mode and origin else 9
@@ -595,7 +644,7 @@ def chat(req: ChatRequest):
             return city.search(
                 effective_query, category, origin, minutes, when, req.open_only, req.no_steps,
                 n, req.strict_amenities, distinct_names=True, max_snap_m=req.max_snap_m,
-                group_size=group, max_walk_min=max_walk, comfort=comfort, trace=trace,
+                group_size=group, max_walk_min=max_walk, comfort=comfort, trace=trace, intent=intent,
             )
 
         if cover:
@@ -657,7 +706,12 @@ def chat(req: ChatRequest):
         # "Хочу сходить в Хан Шатыр" asks about that place only; "поесть у Хан Шатыра"
         # or a walk request keeps the other candidates too.
         skip = {i for m in destinations for i in m["tokens"]} | set(start["tokens"] if start else [])
-        only_leads = not route_mode and not content_query(req.query, skip) and not read_intents(effective_query)[0]
+        # Kinds are read from the text without the named place: "Столичный цирк" names
+        # a circus, it does not also ask for entertainment in general.
+        only_leads = (
+            not route_mode and not content_query(req.query, skip)
+            and not read_intents(without_tokens(req.query, sorted(skip)))[0]
+        )
         pool = leads + ([] if only_leads else [p for p in pool if p["poi_id"] not in lead_ids])
 
     # Published events the walk can catch: shown when asked for, or when one is a short walk away.
@@ -665,10 +719,10 @@ def chat(req: ChatRequest):
         e
         for e in city.events_nearby(
             origin, when, minutes, req.no_steps, req.max_snap_m,
-            limit=3, reachable_only=bool(origin), keep_venues={p["poi_id"] for p in leads},
+            limit=12 if event_intent else 3, reachable_only=bool(origin), keep_venues={p["poi_id"] for p in leads},
         )
-        if event_intent or (e["walk_min"] is not None and e["walk_min"] <= 20)
-    ]
+        if (event_fits(e, req.query) if event_intent else e["walk_min"] is not None and e["walk_min"] <= 20)
+    ][:3]
     if event_intent:
         # Venues of matching events lead the candidates so the answer can point to them.
         known = {p["poi_id"] for p in pool}
@@ -695,7 +749,7 @@ def chat(req: ChatRequest):
             else len(cover)
             if cover
             else 1
-            if read_intents(effective_query)[0] or content_query(effective_query)
+            if asked()[0] or content_query(effective_query)
             else 2
         )
         route = city.mini_route(
@@ -725,6 +779,8 @@ def chat(req: ChatRequest):
             "reserve": reserve,
             "category": req.category,
             "group_size": group or None,
+            # Re-planning searches the same wish without asking the model again.
+            "intent": intent,
         }
     candidates = pool[:9] if not (route and route.get("finish") and not route["stops"]) else []
     if route:
@@ -920,7 +976,7 @@ def chat(req: ChatRequest):
         )
 
     # What the answer was based on, in one place the user can check ("Учтено: …").
-    preferred, wanted = read_intents(effective_query)
+    preferred, wanted = asked()
     comfort_note = comfort_summary(comfort, weather_widened(preferred, comfort, req.category))
     considered = [
         {"label": "Старт", "value": start_note},
@@ -929,6 +985,10 @@ def chat(req: ChatRequest):
     ]
     if walk_note:
         considered.append({"label": "Пешком до места", "value": walk_note})
+    if intent:
+        considered.append({"label": "Понял запрос", "value": (intent["note"] or "разобран Gemini") + " (разбор: Gemini)"})
+    elif provider == "gemini" and content_query(effective_query):
+        considered.append({"label": "Понял запрос", "value": "по словам запроса (Gemini для разбора недоступен)"})
     if cover:
         considered.append({"label": "Ищу вместе", "value": " + ".join(label for label, _ in cover)})
     elif preferred:

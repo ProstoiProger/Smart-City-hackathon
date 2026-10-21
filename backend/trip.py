@@ -86,8 +86,9 @@ def finish_text(route, start):
     )
 
 
-def replan(city, s):
-    """Rest of the walk after an event; `s` is the ReplanRequest."""
+def replan(city, s, intent=None):
+    """Rest of the walk after an event; `s` is the ReplanRequest, `intent` the wish as
+    Gemini read it for the first plan (None: the word rules read `s.query`)."""
     byid = city.byid
     name = lambda pid: (byid[pid].get("display_name") or "").split(",")[0]
     flags = set(s.flags)
@@ -145,7 +146,7 @@ def replan(city, s):
                 for p in city.search(
                     query, s.category, pos, int(remaining), when, s.open_only, s.no_steps, 40,
                     s.strict_amenities, distinct_names=True, max_snap_m=s.max_snap_m,
-                    group_size=s.group_size, max_walk_min=max_leg,
+                    group_size=s.group_size, max_walk_min=max_leg, intent=intent if query else None,
                 )
                 if allowed(p)
             ]
