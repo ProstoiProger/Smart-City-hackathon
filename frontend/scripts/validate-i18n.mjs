@@ -1,4 +1,4 @@
-// Fails the build when ru/kk keys drift apart, a t("key") has no entry,
+// Fails the build when ru/kk/en keys drift apart, a t("key") has no entry,
 // or Cyrillic UI text is hard-coded in JSX instead of going through useT().
 import { readFileSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
@@ -15,9 +15,12 @@ function keys(marker) {
 }
 const ru = keys("const ru: Record<string, string> = {");
 const kk = keys("const kk: Record<string, string> = {");
+const en = keys("const en: Record<string, string> = {");
 const errors = [];
-for (const k of ru) if (!kk.has(k)) errors.push(`missing kk translation for "${k}"`);
-for (const k of kk) if (!ru.has(k)) errors.push(`missing ru translation for "${k}"`);
+for (const [name, dict] of [["kk", kk], ["en", en]]) {
+  for (const k of ru) if (!dict.has(k)) errors.push(`missing ${name} translation for "${k}"`);
+  for (const k of dict) if (!ru.has(k)) errors.push(`missing ru translation for "${k}" (in ${name})`);
+}
 
 function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
@@ -47,4 +50,4 @@ if (errors.length) {
   for (const e of new Set(errors)) console.error("  " + e);
   process.exit(1);
 }
-console.log(`i18n ok: ru ${ru.size} / kk ${kk.size} keys, all t() keys and JSX text checked`);
+console.log(`i18n ok: ru ${ru.size} / kk ${kk.size} / en ${en.size} keys, all t() keys and JSX text checked`);

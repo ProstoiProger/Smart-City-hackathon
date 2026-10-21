@@ -107,6 +107,9 @@ export function TopBar({
           <button aria-pressed={lang === "kk"} onClick={() => setLang("kk")} lang="kk">
             ҚАЗ
           </button>
+          <button aria-pressed={lang === "en"} onClick={() => setLang("en")} lang="en">
+            ENG
+          </button>
         </div>
       </div>
     </header>

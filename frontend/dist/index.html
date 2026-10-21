@@ -17,11 +17,12 @@
           if (t !== "light" && t !== "dark")
             t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
           document.documentElement.setAttribute("data-theme", t);
-          document.documentElement.setAttribute("lang", localStorage.getItem("lang") === "kk" ? "kk" : "ru");
+          var l = localStorage.getItem("lang");
+          document.documentElement.setAttribute("lang", l === "kk" || l === "en" ? l : "ru");
         } catch (e) {}
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-igNKJIeq.js"></script>
+    <script type="module" crossorigin src="/assets/index-DdCE4hJj.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DSvo-cSg.css">
   </head>
   <body>

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Theme = "light" | "dark";
-export type Lang = "ru" | "kk";
+export type Lang = "ru" | "kk" | "en";
 
 interface Prefs {
   theme: Theme;
@@ -11,6 +11,12 @@ interface Prefs {
 }
 
 const PrefsContext = createContext<Prefs | null>(null);
+// The browser tab title in the interface language.
+const TITLE: Record<Lang, string> = {
+  ru: "Astana Walk — прогулки по городу",
+  kk: "Astana Walk — қала бойынша серуен",
+  en: "Astana Walk — walks around the city",
+};
 
 // index.html sets data-theme/lang before first paint; React starts from the same values.
 function read<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
@@ -39,7 +45,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
     ),
   );
-  const [lang, setLang] = useState<Lang>(() => read("lang", ["ru", "kk"] as const, "ru"));
+  const [lang, setLang] = useState<Lang>(() => read("lang", ["ru", "kk", "en"] as const, "ru"));
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -49,6 +55,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.lang = lang;
+    document.title = TITLE[lang];
     write("lang", lang);
   }, [lang]);
 

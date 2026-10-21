@@ -23,7 +23,7 @@ interface Recognition {
 }
 type RecognitionCtor = new () => Recognition;
 
-const SPEECH_LANG: Record<Lang, string> = { ru: "ru-RU", kk: "kk-KZ" };
+const SPEECH_LANG: Record<Lang, string> = { ru: "ru-RU", kk: "kk-KZ", en: "en-US" };
 
 function recognitionCtor(): RecognitionCtor | undefined {
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };

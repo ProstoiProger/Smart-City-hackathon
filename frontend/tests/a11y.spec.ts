@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 // WCAG 2.1 A/AA on the main workspace for every theme, language and form factor,
 // including the open place card and a chat answer.
 const THEMES = ["light", "dark"] as const;
-const LANGS = ["ru", "kk"] as const;
+const LANGS = ["ru", "kk", "en"] as const;
 const VIEWPORTS = { desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } };
 
 async function audit(page: import("@playwright/test").Page) {
