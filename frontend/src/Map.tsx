@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { Poi, Route, TourDetail } from "./api";
+import sprite from "./assets/icons.svg";
 
 export const colors: Record<string, string> = {
   food_drink: "#b26032",
@@ -21,6 +22,8 @@ export default function CityMap({
   routes,
   routeStart,
   finish,
+  focusPoint,
+  originFocus = 0,
   picking,
   onSelect,
   onOrigin,
@@ -37,11 +40,15 @@ export default function CityMap({
   /** Where the drawn route begins (the start, or the walker's place after a re-plan). */
   routeStart?: [number, number] | null;
   finish?: { point: [number, number]; label: string };
+  /** Where the "my point" button takes the map: the start, or the walker's place on a walk. */
+  focusPoint?: [number, number] | null;
+  /** Changes when the user picks a new start: the map flies to `origin`. */
+  originFocus?: number;
   picking: boolean;
   onSelect: (p: Poi) => void;
   onOrigin: (p: [number, number]) => void;
   onTileError: () => void;
-  labels: { aria: string; start: string; startName: string; finish?: string };
+  labels: { aria: string; start: string; startName: string; finish?: string; recenter?: string };
   theme: string;
   tour?: { detail: TourDetail; current: number } | null;
   onTourStop?: (index: number) => void;
@@ -53,6 +60,10 @@ export default function CityMap({
     tourLayer = useRef<L.LayerGroup | null>(null),
     start = useRef<L.Marker | null>(null),
     end = useRef<L.Marker | null>(null);
+  const focus = useRef(focusPoint ?? null);
+  focus.current = focusPoint ?? null;
+  const recenter = useRef<HTMLButtonElement | null>(null);
+  const goTo = useRef<(point: [number, number]) => void>(() => {});
   const handlers = useRef({ picking, onOrigin, onSelect, onTileError, onTourStop });
   handlers.current = { picking, onOrigin, onSelect, onTileError, onTourStop };
   useEffect(() => {
@@ -62,6 +73,41 @@ export default function CityMap({
     );
     map.current = m;
     L.control.zoom({ position: "bottomright" }).addTo(m);
+    goTo.current = (point) => {
+      m.invalidateSize();
+      const zoom = Math.max(m.getZoom(), 16);
+      const size = m.getSize();
+      // A hidden map (mobile tab not shown yet) has no size: flyTo would compute NaN.
+      if (!size.x || !size.y) {
+        m.setView(point, zoom);
+        return;
+      }
+      // A sheet over the bottom of the map hides its centre: centre the point in
+      // the part of the map that stays visible above the sheet.
+      const box = el.current!.getBoundingClientRect();
+      const sheet = el.current!.parentElement?.querySelector(".detail-sheet")?.getBoundingClientRect();
+      const visible = sheet && sheet.top > box.top + 80 ? sheet.top - box.top : box.height;
+      const shift = (box.height - visible) / 2;
+      const target = m.unproject(m.project(point, zoom).add([0, shift]), zoom);
+      const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (still) m.setView(target, zoom);
+      else m.flyTo(target, zoom, { duration: 0.6 });
+    };
+    // "My point": one tap brings the start (or the walker's place) back into view.
+    // Bottom corners stack upwards, so this sits above the zoom buttons.
+    const Recenter = L.Control.extend({
+      onAdd() {
+        const bar = L.DomUtil.create("div", "leaflet-bar map-recenter");
+        const button = L.DomUtil.create("button", "", bar) as HTMLButtonElement;
+        button.type = "button";
+        button.innerHTML = `<svg class="ic" aria-hidden="true" focusable="false"><use href="${sprite}#i-locate"/></svg>`;
+        L.DomEvent.disableClickPropagation(bar);
+        L.DomEvent.on(button, "click", () => focus.current && goTo.current(focus.current));
+        recenter.current = button;
+        return bar;
+      },
+    });
+    new Recenter({ position: "bottomright" }).addTo(m);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -163,6 +209,19 @@ export default function CityMap({
       }).addTo(map.current);
     }
   }, [origin, labels.start, labels.startName]);
+  // A start chosen by the user (landmark, map point, geolocation): fly there smoothly.
+  useEffect(() => {
+    if (originFocus && origin) goTo.current(origin);
+    // Only a new pick moves the map; origin changes from chat answers are fitted with the results.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originFocus]);
+  useEffect(() => {
+    const button = recenter.current;
+    if (!button) return;
+    button.title = labels.recenter ?? "";
+    button.setAttribute("aria-label", labels.recenter ?? "");
+    button.disabled = !focusPoint;
+  }, [labels.recenter, focusPoint]);
   useEffect(() => {
     end.current?.remove();
     end.current = null;

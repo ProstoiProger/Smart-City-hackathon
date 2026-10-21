@@ -197,3 +197,28 @@ test("picking a start on the map does not shift the layout", async ({ page }) =>
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   await expect(page.locator(".map-canvas")).toHaveClass(/leaflet-container/);
 });
+
+test("a new start brings the map to it, and the map button returns there", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await expect(page.locator(".place-row").first()).toBeVisible();
+  // Start pin tip relative to the map centre, in pixels.
+  const offset = () =>
+    page.evaluate(() => {
+      const m = document.querySelector(".map-canvas")!.getBoundingClientRect();
+      const s = document.querySelector(".start-pin")!.getBoundingClientRect();
+      return [Math.round(s.x + s.width / 2 - (m.x + m.width / 2)), Math.round(s.bottom - (m.y + m.height / 2))];
+    });
+  // The flight takes ~0.6 s; poll until the pin settles in the centre.
+  const centred = () =>
+    expect.poll(async () => Math.max(...(await offset()).map(Math.abs)), { timeout: 4000 }).toBeLessThan(12);
+  await page.locator("#origin").selectOption("expo");
+  await centred();
+  await page.mouse.move(700, 400);
+  await page.mouse.down();
+  await page.mouse.move(400, 200, { steps: 5 });
+  await page.mouse.up();
+  expect(Math.max(...(await offset()).map(Math.abs))).toBeGreaterThan(100);
+  await page.getByRole("button", { name: "Показать мою точку на карте" }).click();
+  await centred();
+});

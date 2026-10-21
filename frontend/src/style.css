@@ -2422,3 +2422,28 @@ tbody th {
 .place-card.folded > .pc-media {
   display: none;
 }
+
+/* "My point" button above the zoom controls. */
+.map-recenter button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: var(--surface-1);
+  color: var(--link);
+  cursor: pointer;
+}
+.map-recenter button:hover {
+  background: var(--surface-hover);
+}
+.map-recenter button:disabled {
+  color: var(--text-2);
+  opacity: 0.5;
+  cursor: default;
+}
+.map-recenter .ic {
+  width: 20px;
+  height: 20px;
+}

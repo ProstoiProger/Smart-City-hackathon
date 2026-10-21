@@ -34,12 +34,14 @@ export function MapPanel({ walk }: { walk: Walk }) {
         routes={routes}
         // After a re-plan the rest of the walk starts where the walker is, not at the start pin.
         routeStart={walk.trip && plan ? walk.trip.position : filters.origin}
+        focusPoint={walk.trip && plan ? walk.trip.position : filters.origin}
+        originFocus={walk.originFocus}
         finish={finish && { point: [finish.latitude, finish.longitude], label: finish.label }}
         picking={filters.picking}
         onSelect={(p) => walk.selectPlace(p, false)}
         onOrigin={walk.pickOrigin}
         onTileError={() => setTileError(true)}
-        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originName, finish: t("map.finish") }}
+        labels={{ aria: t("map.aria"), start: t("map.start"), startName: filters.originName, finish: t("map.finish"), recenter: t("map.recenter") }}
         theme={theme}
         tour={walk.tour}
         onTourStop={(i) => walk.tour && walk.setTour({ ...walk.tour, current: i })}

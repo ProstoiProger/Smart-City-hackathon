@@ -76,6 +76,8 @@ export function useWalk() {
   // "" — anywhere, "loop" — back to the start, or a landmark key.
   const [finishKey, setFinishKey] = useState("");
   const [trip, setTrip] = useState<Trip | null>(null);
+  // Bumped when the user changes the start themself: the map flies there.
+  const [originFocus, setOriginFocus] = useState(0);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -301,11 +303,13 @@ export function useWalk() {
     if (!lm) return;
     setOrigin([lm.lat, lm.lon]);
     setOriginLabel(lm.name);
+    setOriginFocus((n) => n + 1);
   }
 
   function pickOrigin(point: Origin) {
     setOrigin(point);
     setOriginLabel("i18n:map.pointOnMap");
+    setOriginFocus((n) => n + 1);
     setPicking(false);
     setNotice(t("notice.originUpdated"));
   }
@@ -324,6 +328,7 @@ export function useWalk() {
         }
         setOrigin([coords.latitude, coords.longitude]);
         setOriginLabel("i18n:filters.myLocation");
+        setOriginFocus((n) => n + 1);
         setNotice(t("notice.geoUpdated"));
       },
       () => setError(t("err.geoDenied")),
@@ -369,7 +374,7 @@ export function useWalk() {
     chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
     afishaState: { afisha, setAfisha, openAfisha },
     tour, setTour,
-    trip, visitStop, replan,
+    trip, visitStop, replan, originFocus,
     search, buildPlan, selectPlace, setPlan, showPlan, pickOrigin,
   };
 }
