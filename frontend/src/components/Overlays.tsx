@@ -39,6 +39,7 @@ export function AfishaPanel({ walk }: { walk: Walk }) {
               {eventDate(event.event_start)}
               {event.event_end && event.event_end !== event.event_start ? " — " + eventDate(event.event_end) : ""}
               {event.event_location ? " · " + event.event_location : ""}
+              {event.source_name ? " · " + event.source_name : ""}
             </p>
             {link.href && (
               <div className="detail-actions">

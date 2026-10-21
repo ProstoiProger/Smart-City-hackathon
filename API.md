@@ -37,3 +37,15 @@
 Живой проверки анонсов в API нет: страницы издателей (Ticketon) не отдаются автоматическому запросу, поэтому интерфейс показывает ссылку на страницу билетов. Офлайн-скрипт `scripts/recheck_events.py` сохраняет попытки проверки в `publisher_recheck`; отсутствие доступа/данных не считается подтверждением, и даже опубликованное `EventScheduled` не является независимой проверкой проведения.
 
 Ответ `/chat`: `considered` — список `{label, value}` того, что учтено (старт и откуда он взят, бюджет, время, лимит «рядом», категории и удобства из запроса, место-цель, компания, фильтры, резервы на вылет, мини-маршрут); `when` — использованное время начала (`null` = сейчас). У каждого места есть `why` и `what_to_do` (текст Gemini, а без модели — шаблон из данных места на языке запроса), `explanation` (`generated`, `template`, `basis` — данные места/отзывы/время пути/расписание/погода, `note`), `evidence` (для свойств из запроса: `confirmed`, `supported`, `single_mention`, `mixed`, `contradicted`, `unknown`) и `review_signals` (счётчики и короткие цитаты отзывов 2ГИС). Поле `group_size` (1–10; в `/api/search` и `/api/chat`) задаёт размер компании, иначе чат определяет его по тексту; в ответе чата `group` (`size`, `from_text`), у мест — `group_cost` (`size`, `amount`, `currency`, `basis`: `adult_ticket`, `standard_ticket`, `average_check`, `free_entry`). `events` в ответе чата — анонсы во время прогулки в пешей доступности (`name`, `start`, `end`, `timed`, `venue`, `venue_poi_id`, `walk_min`, `late`, `price_from`, `age_group`, `source_url`); `late` = true только для площадки-цели запроса: к началу пешком не успеть, ответ говорит об этом; у мест-площадок те же записи в `events`. Поле запроса `mini_route` (`true`/`false`, по умолчанию — по смыслу запроса) включает мини-маршрут; в ответе `mini_route` содержит `stops` (с `arrival_offset_min` — через сколько минут от старта прибытие), `legs` (пешие отрезки с геометрией), `total_duration_min`, `walk_duration_min`, `budget_minutes`, `covers_requested` (все ли названные виды мест вошли), а `items` идут в порядке маршрута. При тесном бюджете визит в остановку может быть сокращён до минимума категории (`visit_shortened`, `typical_visit_min`). `generated_text` показывает, использовался ли текст модели; `generated_facts` всегда false.
+
+## Дополнительные точки
+
+| Метод | Путь | Что |
+|---|---|---|
+| POST | `/api/chat` | Новые поля запроса: `members` (до 6 участников `{name, wish}`, режим группы). Новые поля ответа: `comfort`, `funnel`, `rejected`, `group`; у мест `exposure`, `comfort`, `group_fit`. |
+| GET | `/api/weather` | Теперь с блоками `air` (AQI, PM2.5) и `comfort` (факторы погоды и воздуха). |
+| POST | `/api/pois/{id}/ask` | `{question, when?}` → `answers[]` с `certainty` (`yes`/`likely`/`unknown`/`no`) и `evidence[]`. |
+| GET | `/api/tours?lang=` | Список прогулок с гидом. |
+| GET | `/api/tours/{id}?lang=` | Точки с фактами и источниками, участки пути по графу OSM. |
+| GET | `/api/city/audit` | Карта пробелов города (404, пока не собрана). |
+| GET | `/api/events` | Добавлены `live_collected`, `live_collected_at`. |

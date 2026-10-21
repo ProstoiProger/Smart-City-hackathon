@@ -4,7 +4,7 @@ import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import type { Poi, Route } from "./api";
+import type { Poi, Route, TourDetail } from "./api";
 
 export const colors: Record<string, string> = {
   food_drink: "#b26032",
@@ -25,6 +25,8 @@ export default function CityMap({
   onTileError,
   labels,
   theme,
+  tour,
+  onTourStop,
 }: {
   items: Poi[];
   selected?: Poi;
@@ -36,14 +38,17 @@ export default function CityMap({
   onTileError: () => void;
   labels: { aria: string; start: string; startName: string };
   theme: string;
+  tour?: { detail: TourDetail; current: number } | null;
+  onTourStop?: (index: number) => void;
 }) {
   const el = useRef<HTMLDivElement>(null),
     map = useRef<L.Map | null>(null),
     markers = useRef<L.MarkerClusterGroup | null>(null),
     paths = useRef<L.LayerGroup | null>(null),
+    tourLayer = useRef<L.LayerGroup | null>(null),
     start = useRef<L.Marker | null>(null);
-  const handlers = useRef({ picking, onOrigin, onSelect, onTileError });
-  handlers.current = { picking, onOrigin, onSelect, onTileError };
+  const handlers = useRef({ picking, onOrigin, onSelect, onTileError, onTourStop });
+  handlers.current = { picking, onOrigin, onSelect, onTileError, onTourStop };
   useEffect(() => {
     const m = L.map(el.current!, { zoomControl: false }).setView(
       [51.1283, 71.4305],
@@ -63,6 +68,7 @@ export default function CityMap({
       maxClusterRadius: 45,
     }).addTo(m);
     paths.current = L.layerGroup().addTo(m);
+    tourLayer.current = L.layerGroup().addTo(m);
     m.on("click", (e: L.LeafletMouseEvent) => {
       if (handlers.current.picking)
         handlers.current.onOrigin([e.latlng.lat, e.latlng.lng]);
@@ -177,6 +183,52 @@ export default function CityMap({
     if (bounds.isValid())
       map.current.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }, [routes, origin, theme]);
+  // A guided walk: numbered pins, the legs along the walking graph, the current stop highlighted.
+  useEffect(() => {
+    const layer = tourLayer.current;
+    const m = map.current;
+    layer?.clearLayers();
+    if (!layer || !m || !tour) return;
+    const css = getComputedStyle(document.documentElement);
+    const line = css.getPropertyValue("--route-1").trim() || "#246878";
+    const bounds = L.latLngBounds([]);
+    tour.detail.legs.forEach((leg, i) => {
+      if (leg.geometry.length > 1)
+        L.polyline(leg.geometry, {
+          color: line,
+          weight: 5,
+          opacity: i < tour.current ? 0.35 : 0.9,
+          dashArray: leg.network ? undefined : "6 8",
+        }).addTo(layer);
+      leg.geometry.forEach((pt) => bounds.extend(pt));
+    });
+    tour.detail.stops.forEach((s, i) => {
+      const state = i === tour.current ? "current" : i < tour.current ? "done" : "next";
+      L.marker([s.latitude, s.longitude], {
+        icon: L.divIcon({
+          className: "tour-pin-wrap",
+          html: `<span class="tour-pin ${state}">${i + 1}</span>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        }),
+        title: s.name,
+        zIndexOffset: i === tour.current ? 900 : 500,
+      })
+        .bindTooltip(s.name)
+        .on("click", () => handlers.current.onTourStop?.(i))
+        .addTo(layer);
+      bounds.extend([s.latitude, s.longitude]);
+    });
+    m.invalidateSize();
+    const size = m.getSize();
+    if (size.x <= 0 || size.y <= 0) return;
+    // The tour card docks over the lower part of the map: keep the route in the free upper part.
+    const below = Math.round(size.y * 0.58);
+    const here = tour.detail.stops[tour.current];
+    const target = tour.current > 0 && here ? L.latLngBounds([[here.latitude, here.longitude]]) : bounds;
+    if (target.isValid())
+      m.flyToBounds(target, { paddingTopLeft: [40, 40], paddingBottomRight: [40, below], maxZoom: 16, duration: 0.5 });
+  }, [tour, theme]);
   return (
     <div
       ref={el}

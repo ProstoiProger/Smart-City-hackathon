@@ -657,6 +657,51 @@ details[open] > summary {
   font-size: 20px;
   padding: 9px 14px;
 }
+.chat-compose .voice-btn {
+  font-size: 20px;
+  padding: 9px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  color: var(--text-1);
+}
+.chat-compose .voice-btn.listening {
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-color: var(--error-border);
+  animation: voice-pulse 1.4s ease-in-out infinite;
+}
+@keyframes voice-pulse {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--error-fg) 25%, transparent);
+  }
+}
+.voice-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px 6px;
+  min-height: 28px;
+}
+.voice-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+.voice-status.error {
+  color: var(--error-fg);
+}
+.voice-speak {
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  padding: 6px;
+  font-size: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-compose .voice-btn.listening {
+    animation: none;
+  }
+}
 .privacy {
   font-size: 11px;
   line-height: 1.6;
@@ -1735,4 +1780,483 @@ tbody th {
   .workspace.chat-hidden.active-chat > .assistant {
     display: flex;
   }
+}
+
+/* Weather and air that shaped an answer. */
+.comfort-note {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-caption);
+}
+.comfort-note.shifted {
+  border-color: var(--warn-fg);
+  background: var(--warn-bg);
+}
+.comfort-note strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.comfort-note ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.comfort-note small {
+  color: var(--text-2);
+}
+.comfort-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.comfort-tag.outdoor {
+  color: var(--warn-fg);
+}
+.comfort-tag.indoor {
+  color: var(--ok-fg);
+}
+
+/* "Почему не другие места": funnel of counts and one reason per near-miss. */
+.why-not {
+  margin-top: 12px;
+}
+.why-not summary {
+  font-size: 11px;
+}
+.why-sub {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 11px;
+}
+.funnel {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.funnel li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.funnel li i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  background: var(--surface-hover);
+}
+.rejected {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.rejected li {
+  font-size: 11px;
+}
+.rejected b {
+  display: block;
+}
+.rejected span {
+  display: block;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+/* "Спросить про место": every answer says how sure it is and why. */
+.qa-suggestions {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.qa-suggestions button {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  min-height: 0;
+}
+.qa-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.qa-form input {
+  font-size: 12px;
+}
+.qa-answers {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.qa-answer {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.qa-answer p {
+  margin: 0;
+}
+.qa-answer small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.pill.cert-yes {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.pill.cert-likely {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.pill.cert-no {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+
+/* Group mode: each member's own wish. */
+.group-panel {
+  margin: 4px 16px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.group-panel summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+.group-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 8px 0;
+}
+.group-panel ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.group-panel li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 6px;
+}
+.group-panel input {
+  font-size: 12px;
+  padding: 7px 9px;
+}
+.group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+.group-actions button {
+  font-size: 12px;
+}
+.group-fit {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.group-fit ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.group-fit small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.pill.fit-match {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.pill.fit-partial {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.pill.fit-none {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+
+/* Guided walks. */
+.tour-pin-wrap {
+  background: none;
+  border: 0;
+}
+.tour-pin {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--route-1, #246878);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.tour-pin.done {
+  opacity: 0.55;
+}
+.tour-pin.current {
+  background: var(--accent);
+  transform: scale(1.25);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.tours .tour-card h3 {
+  margin: 0 0 4px;
+}
+.tour-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tour-guide {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.tour-guide h3 {
+  margin: 0;
+}
+.tour-step {
+  color: var(--muted);
+}
+.tour-facts {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.tour-facts a {
+  display: inline-flex;
+  font-size: 11px;
+}
+.tour-tip {
+  margin: 0;
+  font-size: 13px;
+}
+.tour-weather {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.tour-stops {
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+.tour-stops li[aria-current="true"] button {
+  font-weight: 700;
+}
+.tour-stops small {
+  margin-left: 8px;
+  color: var(--muted);
+}
+
+/* City gap map. */
+.city-page {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow: auto;
+  background: var(--bg, var(--surface-1));
+  color: var(--text-1);
+}
+.city-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+.city-head h2 {
+  margin: 0 0 4px;
+}
+.city-head p {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.city-body {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+.city-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.city-tabs button {
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.city-tabs button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
+}
+.city-tabs small {
+  margin-left: 4px;
+  opacity: 0.8;
+}
+.city-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.city-map {
+  height: min(70vh, 640px);
+  min-height: 320px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+}
+.city-side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.city-side h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+.city-why {
+  margin: 0;
+  font-size: 13px;
+}
+.city-legend,
+.city-worst {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.city-legend li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.city-legend i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.city-worst li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.city-cell {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  justify-items: start;
+}
+.pill.city-none {
+  background: var(--error-bg);
+  color: var(--error-fg);
+}
+.pill.city-guess {
+  background: color-mix(in srgb, #8e5bb5 22%, transparent);
+  color: var(--text-1);
+}
+.pill.city-far {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.pill.city-ok {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.city-coverage ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.city-coverage p {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.city-coverage li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.city-coverage li i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  background: var(--surface-hover);
+}
+@media (max-width: 800px) {
+  .city-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The tour card docks low so the route and numbered pins stay visible above it. */
+.compare-panel.tours {
+  width: min(560px, calc(100% - 32px));
+  max-height: 50dvh;
+  padding: 16px 20px;
 }

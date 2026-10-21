@@ -1,5 +1,5 @@
-import type { EventMatch, Poi, Price, PriceEntry } from "../api";
-import { has, type T } from "./i18n";
+import type { ComfortFactor, EventMatch, Poi, Price, PriceEntry, Rejected } from "../api";
+import { has, type T, type Vars } from "./i18n";
 
 function amount(value: number, currency: string | undefined, loc: string) {
   return `${value.toLocaleString(loc)} ${currency || "KZT"}`;
@@ -77,4 +77,20 @@ export function itemTiming(p: Poi, t: T): string {
   return p.route
     ? t("chat.itemMeta", { walk: Math.ceil(p.route.duration_min), visit: p.suggested_visit_duration_min })
     : t("chat.itemVisit", { visit: p.suggested_visit_duration_min });
+}
+
+const numbers = (params: Record<string, unknown>): Vars =>
+  Object.fromEntries(Object.entries(params).filter(([, v]) => typeof v === "number")) as Vars;
+
+export function comfortLabel(f: ComfortFactor, t: T): string {
+  return t("comfort.f." + f.code, numbers(f.params));
+}
+
+/** Why a near-miss place was left out, worded from the server's code and numbers. */
+export function rejectedLabel(r: Rejected, t: T): string {
+  const params: Vars = { ...numbers(r.params) };
+  if (typeof r.params.at === "string") params.at = r.params.at;
+  if (typeof r.params.other === "string") params.other = r.params.other;
+  if (Array.isArray(r.params.attrs)) params.attrs = r.params.attrs.join(", ");
+  return has("why." + r.code) ? t("why." + r.code, params) : r.code;
 }

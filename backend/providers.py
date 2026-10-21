@@ -43,6 +43,8 @@ FACT_KEYS = (
     "poi_id",
     "display_name",
     "category",
+    "exposure",
+    "group_fit",
     "subcategory_label",
     "short_description",
     "grounded_description",
@@ -79,6 +81,8 @@ PROMPT = """Ты помощник по прогулкам в Астане. Вы�
 - "what_to_do": конкретный план на месте в пределах бюджета времени (что посмотреть/сделать, сколько минут). Это идея, а не факт: не придумывай цены, экспонаты, блюда, события и удобства, которых нет в данных.
 - "basis": какие данные ты использовал: place_data, reviews, route_time, opening_hours, weather.
 - Если в context есть group_size (3–5 человек и больше), советуй то, что удобно компании: общий стол, активность на несколько человек; упомяни бронь для кафе. Цены пересчитывай на компанию только если цена есть в данных.
+- Если в context есть comfort, это погода и воздух сейчас (мороз, дождь, ветер, смог): у кандидата поле exposure — outdoor (под открытым небом), indoor (под крышей) или mixed. Предпочитай indoor; уличное место советуй только если оно явно лучше подходит запросу, и тогда честно предупреди о погоде в why. Числа бери из context, не придумывай. Добавь weather в basis.
+- Если в context есть group_members, кандидаты уже упорядочены по компромиссу для всей компании: бери верхние. В why назови, чем место подходит каждому участнику по имени (только по фактам кандидата), и честно скажи, если чьё-то желание закрыто слабо.
 - Если в context есть events, это опубликованные анонсы (не подтверждённые): если событие подходит запросу, назови его, время начала и площадку в why/what_to_do и учти время на дорогу; не обещай, что оно точно состоится.
 - Если в context есть mini_route, это готовый пеший маршрут: рекомендуй ровно эти места в этом порядке. В "why" объясни, почему остановка хороша в маршруте, в "what_to_do" уложи план в visit_min минут этой остановки; в summary назови маршрут целиком.
 - "summary": одно предложение-вступление к подборке.
@@ -200,6 +204,12 @@ TODO = {
         None: "About {m} min on site.",
     },
 }
+GROUP_LEVEL = {
+    "ru": {"match": "подходит", "partial": "частично", "none": "слабо"},
+    "kk": {"match": "сәйкес", "partial": "ішінара", "none": "әлсіз"},
+    "en": {"match": "fits", "partial": "partly", "none": "weak"},
+}
+GROUP_LABEL = {"ru": "каждому", "kk": "әрқайсысына", "en": "for each"}
 SHOW = re.compile(r"театр|балет|опер|филармон|концерт|цирк|кинотеатр|theat|opera|ballet|concert|cinema", re.I)
 
 
@@ -214,13 +224,13 @@ def _ratings(n, lang):
 PHRASES = {
     "ru": {"walk": "{n} мин пешком", "open": "по расписанию открыто к приходу", "hours_unknown": "часы работы не подтверждены",
            "rating": "рейтинг {r} ({n})", "reviews": "по отзывам 2ГИС: {list}", "data": "по данным места: {list}",
-           "group": "для компании: {list}"},
+           "group": "для компании: {list}", "indoor": "под крышей, удобно в такую погоду"},
     "kk": {"walk": "жаяу {n} мин", "open": "кесте бойынша келгенде ашық", "hours_unknown": "жұмыс уақыты расталмаған",
            "rating": "рейтинг {r} ({n})", "reviews": "2ГИС пікірлері бойынша: {list}", "data": "орын деректері бойынша: {list}",
-           "group": "топқа: {list}"},
+           "group": "топқа: {list}", "indoor": "жабық орын, мұндай ауа райында ыңғайлы"},
     "en": {"walk": "{n} min on foot", "open": "open by schedule on arrival", "hours_unknown": "opening hours not confirmed",
            "rating": "rated {r} ({n})", "reviews": "per 2GIS reviews: {list}", "data": "per place data: {list}",
-           "group": "for a group: {list}"},
+           "group": "for a group: {list}", "indoor": "indoors, handy in this weather"},
 }
 AMENITY = {
     "ru": {"power_outlets": "розетки", "quiet": "тихо", "laptop_work": "можно поработать", "wifi": "Wi-Fi",
@@ -256,6 +266,14 @@ def explain_from_data(p, lang="ru", visit_min=None):
     # A rating is a reason only when it is good and rests on more than a handful of votes.
     if (p.get("rating") or 0) >= 4 and (p.get("ratings_count") or 0) >= 10:
         parts.append(say["rating"].format(r=p["rating"], n=_ratings(p["ratings_count"], lang)))
+    if p.get("group_fit"):
+        words = GROUP_LEVEL[lang]
+        parts.append(
+            GROUP_LABEL[lang] + ": " + ", ".join(f"{m['name']} — {words[m['level']]}" for m in p["group_fit"])
+        )
+    if p.get("comfort") == "indoor":
+        parts.append(say["indoor"])
+        basis.append("weather")
     status = (p.get("hours_status") or {}).get("status")
     if status == "open_by_schedule":
         parts.append(say["open"])

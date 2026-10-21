@@ -16,12 +16,17 @@ def no_live_weather_in_unit_tests(monkeypatch):
         "backend.app.current_weather",
         lambda: {"available": False, "note": "test transport disabled"},
     )
+    monkeypatch.setattr("backend.app.current_air", lambda: {"available": False})
 
 
 @pytest.fixture(scope="module")
 def client():
+    # These tests describe the bundled snapshot; live-collected events are covered elsewhere.
+    patch = pytest.MonkeyPatch()
+    patch.setattr("backend.service.LIVE_EVENTS_FILE", "no-such-live-events.jsonl")
     with TestClient(app) as c:
         yield c
+    patch.undo()
 
 
 def test_health_and_actual_dataset(client):

@@ -28,6 +28,9 @@ collector/data/processed/
 *.log
 *.tmp
 *.zip
+# Hand-over notes that ship inside the zip next to the code
+/README.txt
+/changes.patch
 SHA256SUMS.txt
 .claude/
 .DS_Store

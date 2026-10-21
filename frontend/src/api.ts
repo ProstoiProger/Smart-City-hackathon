@@ -79,6 +79,12 @@ export interface Poi {
   what_to_do?: string | null;
   explanation?: { generated: boolean; template?: boolean; basis: string[]; note: string };
   evidence?: Record<string, string>;
+  /** Group mode: how this place fits each member's wish. */
+  group_fit?: GroupFit[];
+  /** Shelter from the weather: outdoor / mixed / indoor. */
+  exposure?: "outdoor" | "mixed" | "indoor";
+  /** Set when current weather changed this place's rank (outdoor pushed down, indoor up). */
+  comfort?: "outdoor" | "indoor";
   review_signals?: Record<string, ReviewSignal> | null;
   reviews_considered?: number | null;
 }
@@ -115,6 +121,7 @@ export interface EventRecord {
   event_location?: string;
   registration_url?: string;
   source_url: string;
+  source_name?: string;
 }
 export interface Meta {
   pois: number;
@@ -126,8 +133,127 @@ export interface Meta {
   dataset_date: string;
   snap_radius_m?: { default: number; min: number; max: number };
 }
+export interface CityCell {
+  lat: number;
+  lon: number;
+  label: string | null;
+  places: number;
+  results: Record<
+    string,
+    { options: number; confirmed: number; nearest_min: number | null; best: string[]; level: "none" | "guess" | "far" | "ok" }
+  >;
+}
+export interface CityAudit {
+  generated_for: string;
+  cell_step: { lat: number; lon: number };
+  scenarios: {
+    id: string;
+    request: string;
+    when: string;
+    strict: boolean;
+    summary: { none: number; guess: number; far: number; ok: number; cells: number };
+  }[];
+  cells: CityCell[];
+  coverage: {
+    places: number;
+    with_hours: number;
+    with_rating: number;
+    with_accessibility: number;
+    with_review_signals: number;
+    with_price: number;
+    events: number;
+  };
+}
+export interface TourCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  duration_min: number;
+  distance_km: number;
+  outdoor: boolean;
+  stops: number;
+  facts: number;
+}
+export interface TourStop {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+  outdoor: boolean;
+  facts: { text: string; source: string; source_name: string }[];
+  tip: string | null;
+}
+export interface TourLeg {
+  geometry: [number, number][];
+  duration_min: number;
+  network_distance_m: number;
+  network: boolean;
+}
+export interface TourDetail extends Omit<TourCard, "stops" | "facts"> {
+  best_season: string | null;
+  hours: { text: string; source?: string } | null;
+  stops: TourStop[];
+  legs: TourLeg[];
+  walk_min: number;
+  note: string;
+}
+export interface GroupMember {
+  name: string;
+  wish: string;
+}
+export interface GroupFit extends GroupMember {
+  level: "match" | "partial" | "none";
+  marks: { label: string; certainty: "yes" | "likely" | "unknown" | "no" }[];
+}
+export interface ComfortFactor {
+  code: "frost" | "cold" | "heat" | "wet" | "storm" | "wind" | "smog";
+  level: "advisory" | "harsh" | "severe";
+  params: Record<string, number | null>;
+}
+export interface Comfort {
+  applies: boolean;
+  level: string;
+  factors: ComfortFactor[];
+}
+export interface Air {
+  available: boolean;
+  aqi?: number;
+  pm2_5?: number;
+  source?: string;
+  source_url?: string;
+}
+export interface FunnelStep {
+  key: "matched" | "nearby" | "reachable" | "open" | "answer";
+  count: number;
+}
+export interface Rejected {
+  poi_id: string;
+  name: string;
+  category?: string;
+  latitude?: number;
+  longitude?: number;
+  code: string;
+  params: Record<string, number | string | string[]>;
+}
+export interface QaAnswer {
+  topic: string;
+  answer: string;
+  certainty: "yes" | "likely" | "unknown" | "no";
+  evidence: string[];
+  source: string;
+}
+export interface PlaceAnswer {
+  poi_id: string;
+  name: string;
+  question: string;
+  answers: QaAnswer[];
+  note: string;
+}
 export interface Weather {
   available: boolean;
+  air?: Air;
+  comfort?: Comfort;
   temperature_c?: number;
   feels_like_c?: number;
   wind_kmh?: number;
@@ -149,9 +275,12 @@ export interface ChatResponse {
   minutes: number;
   mini_route?: Plan | null;
   events?: EventMatch[];
-  group?: { size: number; from_text: boolean } | null;
+  group?: { size: number; from_text: boolean; members?: { name: string; wish: string }[] } | null;
   /** What the answer used: start, budget, time, filters, intents (server-composed text). */
   considered?: { label: string; value: string }[];
+  comfort?: Comfort & { air?: Air };
+  funnel?: FunnelStep[];
+  rejected?: Rejected[];
 }
 export interface EventMatch {
   event_id: string;

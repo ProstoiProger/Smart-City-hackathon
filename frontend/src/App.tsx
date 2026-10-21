@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { AfishaPanel, Notification } from "./components/Overlays";
+import { CityPage } from "./components/CityPage";
+import { ToursPanel } from "./components/ToursPanel";
 import { Icon } from "./lib/Icon";
 import { Assistant } from "./components/Assistant";
 import { Explorer } from "./components/Explorer";
@@ -36,10 +38,18 @@ export default function App() {
   const t = useT();
   const walk = useWalk();
   const [chatHidden, setChatHidden] = useChatHidden();
+  const [toursOpen, setToursOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
   return (
     <>
       <BackendStatus />
-      <TopBar meta={walk.meta} weather={walk.weather} onAfisha={walk.afishaState.openAfisha} />
+      <TopBar
+        meta={walk.meta}
+        weather={walk.weather}
+        onAfisha={walk.afishaState.openAfisha}
+        onTours={() => setToursOpen(true)}
+        onCity={() => setCityOpen(true)}
+      />
       <nav className="mobile-nav" aria-label={t("nav.sections")}>
         {PANELS.map((p) => (
           <button key={p} aria-pressed={walk.panel === p} onClick={() => walk.setPanel(p)}>
@@ -66,6 +76,8 @@ export default function App() {
       )}
       <Notification walk={walk} />
       <AfishaPanel walk={walk} />
+      {toursOpen && <ToursPanel walk={walk} onClose={() => setToursOpen(false)} />}
+      {cityOpen && <CityPage onClose={() => setCityOpen(false)} />}
     </>
   );
 }

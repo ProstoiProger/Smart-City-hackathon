@@ -6,6 +6,7 @@ import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
 import type { Walk } from "../useWalk";
 import { Explanation } from "./Explanation";
+import { PlaceQA } from "./PlaceQA";
 
 function SourceLink({ url, children }: { url?: string; children?: ReactNode }) {
   const t = useT();
@@ -324,6 +325,7 @@ export function PlaceSheet({ walk, p }: { walk: Walk; p: Poi }) {
         </ul>
       )}
       <div className="pc-sections">
+        <PlaceQA p={p} when={walk.filters.when} />
         <Amenities p={p} />
         <ReviewSignals p={p} />
         <Published p={p} />

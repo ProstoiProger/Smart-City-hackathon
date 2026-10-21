@@ -1,0 +1,25 @@
+# Event sources read by `python -m collector.live_events`. Add a source = add a block, no code changes.
+#
+# kind:
+#   listing   an afisha listing page -> event pages (link_pattern) -> schema.org Event JSON-LD on each page
+#   page      one page that carries JSON-LD events itself
+#
+# Before enabling a source: check its robots.txt and terms of use (the fetcher honours robots.txt and
+# waits between requests), keep the page limit low, and always link back to the source.
+
+sources:
+  - id: sxodim_afisha
+    kind: listing
+    title: Sxodim - афиша Астаны
+    url: https://sxodim.com/astana/afisha
+    link_pattern: '^https://sxodim\.com/astana/event/[a-z0-9-]+/?$'
+    pages: 3
+    max_items: 60
+
+  - id: sxodim_exhibitions
+    kind: listing
+    title: Sxodim - выставки
+    url: https://sxodim.com/astana/events/vystavki
+    link_pattern: '^https://sxodim\.com/astana/event/[a-z0-9-]+/?$'
+    pages: 2
+    max_items: 30

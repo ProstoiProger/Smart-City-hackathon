@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 from .settings import DATA, ROOT, setting
 from .hours import closure, parse_when
-from .service import ATTR_LABEL, City, LABELS, read_intents
+from .service import ATTR_LABEL, City, LABELS, read_intents, weather_widened
 from .routing import MAX_ALLOWED_SNAP_M, MAX_SNAP_M, MIN_SNAP_M, meters
 from .providers import PROVIDERS, explain_from_data, select, configured
 from .query import (
@@ -25,9 +25,14 @@ from .query import (
     without_tokens,
 )
 from .weather import current_weather
+from .comfort import assess, current_air
+from .explain import Trace
+from . import cityaudit, placeqa, tours as tour_data
+from .group import MAX_MEMBERS, MIN_MEMBERS, clean_members, group_pool
 from .photos import main_photo
 
 city = None
+tours = None
 # Assumed when a flight is mentioned but the user gave no buffers of their own: a taxi
 # from the centre to the airport and the minimum before a domestic departure.
 DEFAULT_TRANSFER_MIN = 30
@@ -37,6 +42,22 @@ OFFLINE_SUMMARY = {
     "kk": "Сұрауыңыз бойынша нұсқалар табылды. Деректер, уақыт пен шектеулер карточкаларда.",
     "en": "Here are options for your request. Facts, time estimates and limits are on the cards.",
 }
+
+
+def comfort_summary(comfort, widened=False):
+    """One line for the "Учтено" block; the card texts use the factor codes directly."""
+    if not comfort["applies"]:
+        return "погода и воздух описывают только «сейчас»; для выбранного времени не учитываются"
+    names = {
+        "frost": "сильный мороз", "cold": "холодно", "heat": "жарко", "wet": "осадки", "storm": "гроза",
+        "wind": "сильный ветер", "smog": "плохой воздух",
+    }
+    shown = [names[f["code"]] for f in comfort["factors"] if f["level"] != "advisory"]
+    if not shown:
+        return None
+    return ", ".join(shown) + ": уличные места ниже в выдаче, ближние и крытые выше" + (
+        "; к прогулке добавлены музеи и галереи" if widened else ""
+    )
 
 
 def city_closed(pid):
@@ -89,8 +110,9 @@ def detect_group(text):
 
 @asynccontextmanager
 async def lifespan(app):
-    global city
+    global city, tours
     city = City()
+    tours = tour_data.Registry(city.router)
     yield
 
 
@@ -131,6 +153,11 @@ class SearchRequest(Context):
     group_size: int | None = Field(None, ge=1, le=10)
 
 
+class GroupMember(BaseModel):
+    name: str = Field("", max_length=30)
+    wish: str = Field("", max_length=200)
+
+
 class ChatRequest(SearchRequest):
     query: str = Field(min_length=1, max_length=1500)
     provider: Literal["offline", "gemini"] | None = None
@@ -138,6 +165,8 @@ class ChatRequest(SearchRequest):
     airport_reserve_min: int | None = Field(None, ge=0, le=240)
     # None: build a mini-route when the request asks for a walk/route; True/False forces it.
     mini_route: bool | None = None
+    # Group mode: each member's own wish; the answer is the best compromise for all of them.
+    members: list[GroupMember] | None = Field(None, max_length=MAX_MEMBERS)
 
 
 class PlanRequest(Context):
@@ -176,14 +205,35 @@ def meta():
 
 @app.get("/api/weather")
 def weather():
-    return current_weather()
+    now = current_weather()
+    air = current_air()
+    return {**now, "air": air, "comfort": assess(now, air)}
+
+
+@app.get("/api/tours")
+def tour_list(lang: str = "ru"):
+    return {"items": tour_data.cards(tours.tours, lang)}
+
+
+@app.get("/api/tours/{tour_id}")
+def tour_detail(tour_id: str, lang: str = "ru"):
+    detail = tours.detail(tour_id, lang)
+    if detail is None:
+        raise HTTPException(404, "Прогулка не найдена")
+    return detail
+
+
+@app.get("/api/city/audit")
+def city_audit():
+    audit = cityaudit.load(DATA / "city_audit.json")
+    if audit is None:
+        raise HTTPException(404, "Аудит города не построен: python scripts/build_city_audit.py")
+    return audit
 
 
 @app.get("/api/events")
 def events():
-    import json
-
-    rows = [json.loads(l) for l in (DATA / "events.jsonl").open(encoding="utf-8")]
+    rows = city.events
     today = parse_when().date().isoformat()
     items = [
         e
@@ -195,7 +245,9 @@ def events():
     ]
     return {
         "items": items,
-        "all_snapshot_records": len(rows),
+        "all_snapshot_records": city.events_snapshot,
+        "live_collected": len(city.events_live),
+        "live_collected_at": max((e.get("collected_at") or "" for e in city.events_live), default=None),
         "live_verified": False,
         "note": "Публикации источников, не проверка фактического проведения или отмены.",
     }
@@ -246,6 +298,27 @@ def detail(poi_id: str):
     if poi_id not in city.byid:
         raise HTTPException(404, "Место не найдено")
     return city.public(city.byid[poi_id])
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=300)
+    when: str | None = None
+
+    @model_validator(mode="after")
+    def validate_when(self):
+        if self.when:
+            try:
+                parse_when(self.when)
+            except (ValueError, TypeError):
+                raise ValueError("Неверная дата: требуется ISO 8601")
+        return self
+
+
+@app.post("/api/pois/{poi_id:path}/ask")
+def ask_place(poi_id: str, req: AskRequest):
+    if poi_id not in city.byid:
+        raise HTTPException(404, "Место не найдено")
+    return placeqa.answer(city, poi_id, req.question, req.when)
 
 
 @app.post("/api/plan")
@@ -361,31 +434,46 @@ def chat(req: ChatRequest):
         if req.mini_route is not None
         else bool(ROUTE_INTENT.search(req.query))
     )
-    group = req.group_size if req.group_size and req.group_size > 1 else detect_group(req.query)
+    members = clean_members([m.model_dump() for m in req.members or []])
+    if len(members) < MIN_MEMBERS or all(m.neutral for m in members):
+        members = []
+    group = len(members) or (req.group_size if req.group_size and req.group_size > 1 else detect_group(req.query))
     event_intent = bool(EVENT_INTENT.search(req.query))
     cover = [] if req.category else cover_groups(req.query)
-    nearby = bool(origin) and not route_mode and wants_nearby(req.query)
+    nearby = bool(origin) and not route_mode and not members and wants_nearby(req.query)
     limit = 24 if route_mode and origin else 9
 
+    weather = current_weather()
+    comfort = assess(weather, current_air(), when)
+
     def gather(max_walk):
+        trace = Trace()
+
         def find(category, n):
             return city.search(
                 effective_query, category, origin, minutes, when, req.open_only, req.no_steps,
                 n, req.strict_amenities, distinct_names=True, max_snap_m=req.max_snap_m,
-                group_size=group, max_walk_min=max_walk,
+                group_size=group, max_walk_min=max_walk, comfort=comfort, trace=trace,
             )
 
         if cover:
             # "музей и кофе": candidates of each named kind, so neither crowds the other out.
-            return _interleave([find(cat, max(8, limit // len(cover))) for _, cat in cover])
-        return find(req.category, limit)
+            return _interleave([find(cat, max(8, limit // len(cover))) for _, cat in cover]), trace
+        return find(req.category, limit), trace
 
     def evidenced(items):
         # Places whose requested amenities (outlets, quiet…) are confirmed or supported.
         return [p for p in items if p.get("evidence") and all(k in ("confirmed", "supported") for k in p["evidence"].values())]
 
     walk_note = None
-    pool = gather(NEARBY_WALK_MIN if nearby else None)
+    if members:
+        trace = Trace()
+        pool = group_pool(
+            city, members, origin, minutes, when, req.open_only, req.no_steps, limit, req.strict_amenities,
+            req.max_snap_m, trace,
+        )
+    else:
+        pool, trace = gather(NEARBY_WALK_MIN if nearby else None)
     if nearby:
         walk_note = f"до {NEARBY_WALK_MIN} мин пешком — вы написали, что нужно рядом"
         relaxed = None
@@ -394,9 +482,9 @@ def chat(req: ChatRequest):
         elif any(p.get("evidence") for p in pool) and not evidenced(pool[:3]):
             relaxed = "нет мест с подтверждёнными удобствами из запроса"
         if relaxed:
-            wider = gather(NEARBY_RELAXED_MIN)
+            wider, wider_trace = gather(NEARBY_RELAXED_MIN)
             if len(wider) > len(pool) or evidenced(wider[:3]):
-                pool = wider
+                pool, trace = wider, wider_trace
                 walk_note = f"до {NEARBY_RELAXED_MIN} мин пешком: в пределах {NEARBY_WALK_MIN} мин {relaxed}"
     if start:
         pool = [p for p in pool if not is_start_place(p, start, req.query)]
@@ -465,7 +553,6 @@ def chat(req: ChatRequest):
             for s in route["stops"]
             if s["poi_id"] not in shown
         ]
-    weather = current_weather()
     context = {
         "budget_minutes": minutes,
         "when": when,
@@ -473,8 +560,12 @@ def chat(req: ChatRequest):
         "weather": weather,
         "flight_context": flight_context,
     }
+    if comfort["applies"] and comfort["factors"]:
+        context["comfort"] = [{"factor": f["code"], **f["params"]} for f in comfort["factors"]]
     if group:
         context["group_size"] = group
+    if members:
+        context["group_members"] = [{"name": m.name, "wish": m.wish or None} for m in members]
     if events:
         context["events"] = [
             {k: e[k] for k in ("name", "start", "end", "venue", "venue_poi_id", "walk_min", "late", "price_from", "age_group")}
@@ -527,6 +618,17 @@ def chat(req: ChatRequest):
         }
         selected.append(item)
     generated = any(p["generated"] for p in picks)
+    chosen = {p["poi_id"] for p in selected}
+    for item in pool[:9]:
+        if item["poi_id"] in chosen:
+            continue
+        weather_shift = comfort["applies"] and comfort["score_level"] >= 1 and item.get("comfort") == "outdoor"
+        trace.reject(
+            item,
+            "outdoor_weather" if weather_shift else "ranked_lower",
+            item.get("search_score", 0) + 1,
+            walk=round((item.get("route") or {}).get("duration_min") or 0),
+        )
     text = (
         summary
         or OFFLINE_SUMMARY.get(lang, OFFLINE_SUMMARY["ru"])
@@ -540,7 +642,12 @@ def chat(req: ChatRequest):
             f"Мини-маршрут: {len(route['stops'])} места за ~{round(route['total_duration_min'])} мин "
             f"из {minutes} (пешком ~{round(route['walk_duration_min'])} мин). " + text
         )
-    if group:
+    if members:
+        text = (
+            f"Подбор для компании из {group} человек: учтено желание каждого, важнее тот, кому подходит меньше всего. "
+            + text
+        )
+    elif group:
         text = f"Подбор для компании из {group} человек. " + text
     if route_mode and origin and selected and not route:
         text += " Несколько мест вместе не укладываются в это время — показаны отдельные варианты."
@@ -566,6 +673,20 @@ def chat(req: ChatRequest):
             )
             + text
         )
+    if members and selected:
+        gaps = [
+            f["name"]
+            for f in selected[0]["group_fit"]
+            if not any(
+                next(x for x in item["group_fit"] if x["name"] == f["name"])["level"] != "none" for item in selected
+            )
+        ]
+        if gaps:
+            warnings.append(
+                "Не всем сразу: " + ", ".join(gaps) + " — под желание не нашлось подходящего места в этих условиях."
+            )
+        elif all(item["group_worst"] < 0.4 for item in selected):
+            warnings.append("Одного места на всех нет: у каждого варианта кому-то подходит слабо, см. «Каждому».")
     warnings = ([warning] if warning else []) + warnings
     if (
         origin
@@ -595,6 +716,7 @@ def chat(req: ChatRequest):
 
     # What the answer was based on, in one place the user can check ("Учтено: …").
     preferred, wanted = read_intents(effective_query)
+    comfort_note = comfort_summary(comfort, weather_widened(preferred, comfort, req.category))
     considered = [
         {"label": "Старт", "value": start_note},
         {"label": "Время", "value": f"{minutes} мин — {budget_note}" + (" минус резервы на вылет" if flight_context else "")},
@@ -610,7 +732,13 @@ def chat(req: ChatRequest):
         considered.append({"label": "Удобства из запроса", "value": ", ".join(ATTR_LABEL[a] for a in wanted)})
     if destinations:
         considered.append({"label": "Место из запроса", "value": ", ".join(m["label"] for m in destinations[:2])})
-    if group:
+    if comfort_note:
+        considered.append({"label": "Погода и воздух", "value": comfort_note})
+    if members:
+        considered.append(
+            {"label": "Компания", "value": f"{group} чел.: " + "; ".join(f"{m.name} — {m.wish or 'без пожеланий'}" for m in members)}
+        )
+    elif group:
         considered.append(
             {"label": "Компания", "value": f"{group} чел." + (" (из текста)" if not (req.group_size and req.group_size > 1) else "")}
         )
@@ -705,7 +833,13 @@ def chat(req: ChatRequest):
         ),
         "mini_route": route,
         "events": events,
-        "group": {"size": group, "from_text": not (req.group_size and req.group_size > 1)} if group else None,
+        "group": (
+            {"size": group, "from_text": False, "members": [{"name": m.name, "wish": m.wish} for m in members]}
+            if members
+            else {"size": group, "from_text": not (req.group_size and req.group_size > 1)}
+            if group
+            else None
+        ),
         "considered": considered,
         "when": when,
         "minutes": minutes,
@@ -713,6 +847,9 @@ def chat(req: ChatRequest):
         "generated_text": generated,
         "flight_context": flight_context,
         "weather": weather,
+        "comfort": {**comfort, "air": current_air()},
+        "funnel": trace.funnel(len(selected)),
+        "rejected": trace.top(6, skip=chosen),
     }
 
 
