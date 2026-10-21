@@ -25,6 +25,7 @@ export default function CityMap({
   focusPoint,
   originFocus = 0,
   people,
+  stops,
   picking,
   onSelect,
   onOrigin,
@@ -45,6 +46,8 @@ export default function CityMap({
   focusPoint?: [number, number] | null;
   /** Changes when the user picks a new start: the map flies to `origin`. */
   originFocus?: number;
+  /** The stops of the route on screen, drawn as numbered pins in their order. */
+  stops?: Poi[];
   /** A company meeting: where each person starts. */
   people?: { name: string; latitude: number; longitude: number }[];
   picking: boolean;
@@ -63,7 +66,8 @@ export default function CityMap({
     tourLayer = useRef<L.LayerGroup | null>(null),
     start = useRef<L.Marker | null>(null),
     end = useRef<L.Marker | null>(null),
-    crowd = useRef<L.LayerGroup | null>(null);
+    crowd = useRef<L.LayerGroup | null>(null),
+    stopLayer = useRef<L.LayerGroup | null>(null);
   const focus = useRef(focusPoint ?? null);
   focus.current = focusPoint ?? null;
   const recenter = useRef<HTMLButtonElement | null>(null);
@@ -126,6 +130,7 @@ export default function CityMap({
     paths.current = L.layerGroup().addTo(m);
     tourLayer.current = L.layerGroup().addTo(m);
     crowd.current = L.layerGroup().addTo(m);
+    stopLayer.current = L.layerGroup().addTo(m);
     m.on("click", (e: L.LeafletMouseEvent) => {
       if (handlers.current.picking)
         handlers.current.onOrigin([e.latlng.lat, e.latlng.lng]);
@@ -214,6 +219,31 @@ export default function CityMap({
       }).addTo(map.current);
     }
   }, [origin, labels.start, labels.startName]);
+  // Route stops: numbered pins, never clustered, redrawn whenever the route changes
+  // (a closed place replaced, plan B taken, an edit in the chat).
+  useEffect(() => {
+    const layer = stopLayer.current;
+    layer?.clearLayers();
+    if (!layer || !stops?.length) return;
+    stops.forEach((p, i) => {
+      const color = colors[p.category] || "#536656";
+      const label = document.createElement("span");
+      label.textContent = `${i + 1}. ${p.display_name}`;
+      L.marker([p.latitude, p.longitude], {
+        icon: L.divIcon({
+          className: "poi-pin-wrap",
+          html: `<span class="stop-pin" style="background:${color}">${i + 1}</span>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        }),
+        title: label.textContent,
+        keyboard: false,
+        zIndexOffset: 700,
+      })
+        .bindTooltip(label)
+        .addTo(layer);
+    });
+  }, [stops]);
   // Meeting: a small named pin where each person starts.
   useEffect(() => {
     const layer = crowd.current;

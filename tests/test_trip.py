@@ -116,11 +116,13 @@ def replan(client, walk, **extra):
 
 def test_closed_stop_is_replaced_and_finish_kept(client, walk):
     first = walk["stops"][0]
+    # "Здесь закрыто" at the door: the rest of the walk starts at the closed place.
     r = replan(
         client, walk, action="closed", stop_id=first["poi_id"], elapsed=first["arrival_offset_min"],
         position={"latitude": first["latitude"], "longitude": first["longitude"]},
     )
     ids = [s["poi_id"] for s in r["plan"]["stops"]]
+    assert r["state"]["position"] == {"latitude": first["latitude"], "longitude": first["longitude"]}
     assert first["poi_id"] not in ids and first["poi_id"] in r["state"]["excluded"]
     assert len(ids) == len(walk["stops"])
     assert r["plan"]["finish"]["label"] == "Хан Шатыр" and r["plan"]["finish"]["fits"]

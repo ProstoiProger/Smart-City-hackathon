@@ -118,6 +118,7 @@ def replan(city, s, intent=None):
                 keep.remove(cid)  # the count stays: a replacement is looked for
             else:
                 target += 1
+            # "Здесь закрыто": the walker came to the door, so the rest starts there.
             pos = (byid[cid]["latitude"], byid[cid]["longitude"])
             notes.append(f"«{name(cid)}» закрыто — убрал из плана и ищу замену рядом.")
     elif s.action == "delay":
@@ -414,10 +415,14 @@ ORDINALS = [
 KEEP_WORDS = r"остав|сохран|не\s+трог|нрав|keep|қалдыр"
 REPLACE_WORDS = r"замен|помен|смен|другое\s+вместо|друг\w+\s+(?:место|кафе|музей|парк)|replace|change|swap|ауыстыр"
 REMOVE_WORDS = r"убер|убра|удал|выкин|не\s+надо|не\s+нужн|remove|drop|skip|алып\s+таста|керек\s+емес"
-MORE_WORDS = r"ещ[её]\s+вариант|други[ех]\s+вариант|другой\s+вариант|покажи\s+ещ[её]|другие\s+места|more\s+options|other\s+options|басқа\s+нұсқа"
+MORE_WORDS = r"^\W*(?:а\s+)?(?:ещ[её]|други[ех]|more|тағы)\W*$|ещ[её]\s+вариант|други[ех]\s+вариант|другой\s+вариант|покажи\s+ещ[её]|другие\s+места|more\s+options|other\s+options|басқа\s+нұсқа|тағы\s+нұсқа|басқа\s+орын"
 CLOSER_WORDS = r"ближе|поближе|недалеко|покороче|меньше\s+(?:идти|ходить)|closer|nearer|жақынырақ"
 ADD_WORDS = r"добав\w*\s+(?:ещ[её]\s+)?(.+)|\badd\s+(?:a\s+|an\s+)?(.+)|қос\w*\s+(.+)"
 WITHOUT = r"(?:без\s+|не\s+хочу\s+(?:в\s+)?|не\s+надо\s+|without\s+|no\s+)(\w+)"
+
+
+# Kazakh "-сыз/-сіз": "кафесіз" is "без кафе".
+KK_WITHOUT = r"(\w+?)с[ыі]з\b"
 
 
 def read_edit_rules(text, count, group=None):
@@ -439,7 +444,7 @@ def read_edit_rules(text, count, group=None):
             ops["replace"] += nums
         elif re.search(REMOVE_WORDS, clause):
             ops["remove"] += nums
-    for m in re.finditer(WITHOUT, low):
+    for m in [*re.finditer(WITHOUT, low), *re.finditer(KK_WITHOUT, low)]:
         word = m.group(1)
         for _, rx, cat in COVER:
             if re.search(rx, word) and cat not in ops["exclude_categories"]:

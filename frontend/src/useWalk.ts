@@ -8,6 +8,7 @@ import {
   type Meta,
   type Plan,
   type Poi,
+  type DialogState,
   type MeetingPerson,
   type Provider,
   type ReplanResponse,
@@ -16,6 +17,7 @@ import {
   type Weather,
 } from "./api";
 import { has, useT } from "./lib/i18n";
+import { clockAt } from "./lib/format";
 
 export type Panel = "places" | "map" | "chat";
 export type Message = { id: number; role: "user" | "assistant"; text: string; data?: ChatResponse };
@@ -47,6 +49,14 @@ function freshTrip(session: TripSession): Trip {
 }
 
 const BAYTEREK: Origin = [51.1282882, 71.4304546];
+// The chat message a walk button stands for.
+const TRIP_WORDS: Record<TripAction, string> = {
+  closed: "trip.closed",
+  delay: "trip.delay",
+  cold: "trip.cold",
+  tired: "trip.tired",
+  swap: "trip.swap",
+};
 const ASTANA_BOUNDS = { minLat: 50.8, maxLat: 51.5, minLon: 71, maxLon: 71.9 };
 
 /** All workspace state and API actions; components only render and call these. */
@@ -81,6 +91,8 @@ export function useWalk() {
   const [originFocus, setOriginFocus] = useState(0);
   // People of a meeting question, drawn on the map with their walks to the place.
   const [meeting, setMeeting] = useState<MeetingPerson[] | null>(null);
+  // The last answer of the chat: follow-ups ("ещё", "убери второе") refine it.
+  const [dialog, setDialog] = useState<DialogState | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -179,6 +191,7 @@ export function useWalk() {
         ...finishBody(),
         // The walk on screen: the message may edit it ("второе замени", "без кафе").
         route: routeContext(),
+        dialog: routeContext() ? undefined : (dialog ?? undefined),
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
       setItems(data.items);
@@ -187,6 +200,9 @@ export function useWalk() {
       const route = data.mini_route;
       setPlan(route && (route.stops.length || route.finish) ? route : undefined);
       setMeeting(data.meeting?.people ?? null);
+      setDialog(data.dialog ?? null);
+      // A new interest switched an old category chip off on the server: do the same here.
+      if (data.cleared_category) setCategory("");
       if (data.trip_state && trip && route?.session) {
         // An edit continues the same walk: history, visited stops and time spent stay.
         const st = data.trip_state;
@@ -244,10 +260,58 @@ export function useWalk() {
   }
 
   /** "Посетили": the next stop moves to the history; the times of the rest stay. */
+  /** A walk button pressed on the map shows in the chat as the user's message, and the
+   * reply as the assistant's: the chat speaks it like any other answer. */
+  function say(text: string) {
+    setMessages((m) => [...m, { id: Date.now(), role: "user", text }]);
+  }
+
+  function reply(text: string, route?: Plan) {
+    const data = route && (route.stops.length || route.finish)
+      ? ({
+          answer: text,
+          spoken: text,
+          items: route.stops,
+          warnings: [],
+          provider_used: "offline",
+          steps: [],
+          minutes: route.budget_minutes ?? minutes,
+          mini_route: route,
+          events: [],
+        } as ChatResponse)
+      : undefined;
+    setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text, data }]);
+  }
+
+  /** What comes next after "Посетили": the next stop, the finish, or the end of the walk. */
+  function nextLine(rest: Poi[], route: Plan) {
+    const start = route.session?.start_at;
+    const next = rest[0];
+    if (next) {
+      const walkMin = Math.max(1, Math.round(route.legs[1]?.duration_min ?? 0));
+      return t("trip.nextSay", {
+        name: next.display_name.split(",")[0],
+        walk: walkMin,
+        at: clockAt(start, next.arrival_offset_min ?? 0),
+      });
+    }
+    if (route.finish) {
+      return t(route.finish.loop ? "trip.backSay" : "trip.finishSay", {
+        name: route.finish.label,
+        walk: Math.max(1, Math.round(route.finish.leg.duration_min)),
+        at: clockAt(start, route.finish.arrival_offset_min),
+      });
+    }
+    return t("trip.doneSay");
+  }
+
   function visitStop() {
     if (!plan || !trip || !plan.stops.length) return;
     const [s, ...rest] = plan.stops;
-    setPlan({ ...plan, stops: rest, legs: plan.legs.slice(1) });
+    const after = { ...plan, stops: rest, legs: plan.legs.slice(1) };
+    say(t("trip.visited"));
+    reply(nextLine(rest, plan), after);
+    setPlan(after);
     setTrip({
       ...trip,
       elapsed: (s.arrival_offset_min ?? trip.elapsed) + s.suggested_visit_duration_min,
@@ -263,12 +327,20 @@ export function useWalk() {
     if (!plan || !trip || busy) return;
     const next = plan.stops[0];
     const closing = action === "closed" && next;
+    say(
+      swap?.backup
+        ? t("trip.swapSay", { from: swap.display_name.split(",")[0], to: swap.backup.display_name.split(",")[0] })
+        : closing
+          ? t("trip.closedSay", { name: next.display_name.split(",")[0] })
+          : t(TRIP_WORDS[action]),
+    );
     setBusy(true);
     setError("");
     try {
       const data = await request<ReplanResponse>("replan", {
         ...trip.session,
         action,
+        // "Здесь закрыто": the walker is at the closed place, at its arrival time.
         elapsed: closing ? (next.arrival_offset_min ?? trip.elapsed) : trip.elapsed,
         position: closing
           ? { latitude: next.latitude, longitude: next.longitude }
@@ -295,13 +367,14 @@ export function useWalk() {
         history: closing ? [...trip.history, { id: next.poi_id, name: next.display_name, status: "closed" }] : trip.history,
         note: data.answer,
       });
-      setPlan(
-        data.plan
-          ? { ...data.plan, session: trip.session }
-          : { ...plan, stops: [], legs: [], finish: undefined },
-      );
+      const after = data.plan
+        ? { ...data.plan, session: trip.session }
+        : { ...plan, stops: [], legs: [], finish: undefined };
+      setPlan(after);
+      reply(data.answer, after);
     } catch (e) {
       setError(message(e, "err.replan"));
+      reply(message(e, "err.replan"));
     } finally {
       setBusy(false);
     }

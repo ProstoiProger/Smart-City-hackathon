@@ -222,3 +222,58 @@ test("a new start brings the map to it, and the map button returns there", async
   await page.getByRole("button", { name: "Показать мою точку на карте" }).click();
   await centred();
 });
+
+test("follow-ups refine the last answer: more without repeats, remove the second", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await offlineChat(page);
+  // Daytime, so that the cafés are open by schedule whatever the hour of the run.
+  await page.getByText("Условия прогулки", { exact: true }).click();
+  await page.locator("#when").fill("2026-10-22T13:00");
+  const ask = async (text: string) => {
+    const before = await page.locator(".message.assistant").count();
+    await page.getByLabel("Куда хотите сходить?").fill(text);
+    await page.getByRole("button", { name: "Отправить", exact: true }).click();
+    await expect(page.locator(".message.assistant")).toHaveCount(before + 1);
+    return page.locator(".message.assistant").last().locator(".chat-place strong").allInnerTexts();
+  };
+  const first = await ask("Хочу выпить кофе");
+  // The answer carries no service blocks, only the places and one-tap follow-ups.
+  const before = await page.locator(".message.assistant").count();
+  const last = page.locator(".message.assistant").nth(before - 1);
+  await expect(last.locator(".considered, .trace, .source-tag")).toHaveCount(0);
+  await last.locator(".quick-replies").getByRole("button", { name: "Ещё варианты" }).click();
+  await expect(page.locator(".message.assistant")).toHaveCount(before + 1);
+  await expect(page.locator(".message.user").last()).toContainText("Ещё варианты");
+  const more = await page.locator(".message.assistant").last().locator(".chat-place strong").allInnerTexts();
+  await expect(last.locator(".quick-replies")).toHaveCount(0);
+  expect(first.length).toBeGreaterThan(1);
+  expect(more.length).toBeGreaterThan(0);
+  expect(more.filter((name) => first.includes(name))).toEqual([]);
+  const trimmed = await ask("Убери второе");
+  expect(trimmed).toEqual(more.filter((_, i) => i !== 1));
+});
+
+test("walk buttons on the map talk in the chat", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await offlineChat(page);
+  await page.getByText("Условия прогулки", { exact: true }).click();
+  await page.locator("#when").fill("2026-10-22T13:00");
+  await page.getByLabel("Куда хотите сходить?").fill("Погулять 2 часа: парк, кофе и музей");
+  await page.getByRole("button", { name: "Отправить", exact: true }).click();
+  const sheet = page.locator(".itinerary");
+  await expect(sheet.getByRole("button", { name: "Здесь закрыто" })).toBeVisible();
+  const first = (await sheet.locator("li").first().locator("strong").innerText()).trim();
+  await sheet.getByRole("button", { name: "Здесь закрыто" }).click();
+  await expect(page.locator(".message.user").last()).toContainText(`«${first}» закрыто`);
+  await expect(page.locator(".message.assistant").last()).toContainText("закрыто — убрал из плана");
+  // The map follows: the numbered stops are the new route, the closed place is gone.
+  const replacement = (await sheet.locator("ol > li").first().locator("strong").innerText()).trim();
+  await expect(page.locator(".stop-pin").first().locator("..")).toHaveAttribute("title", `1. ${replacement}`);
+  const pinned = await page.locator(".stop-pin").evaluateAll((els) => els.map((e) => e.parentElement!.title));
+  expect(pinned.some((title) => title.endsWith(first))).toBe(false);
+  await sheet.getByRole("button", { name: "Посетили, дальше" }).click();
+  await expect(page.locator(".message.user").last()).toContainText("Посетили, дальше");
+  await expect(page.locator(".message.assistant").last()).toContainText(/Дальше|Остановок больше нет|последняя остановка/);
+});

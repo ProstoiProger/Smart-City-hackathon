@@ -1,10 +1,14 @@
 import { useMemo, useState } from "react";
+import type { Poi } from "../api";
 import CityMap from "../Map";
 import { Icon } from "../lib/Icon";
 import { useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
 import type { Walk } from "../useWalk";
 import { ItinerarySheet, PlaceSheet } from "./PlaceSheet";
+
+// One empty list for every render: a new [] each time would refit the map on every keystroke.
+const NO_PLACES: Poi[] = [];
 
 export function MapPanel({ walk }: { walk: Walk }) {
   const t = useT();
@@ -30,7 +34,9 @@ export function MapPanel({ walk }: { walk: Walk }) {
   return (
     <section className="map-panel" aria-label={t("nav.map")}>
       <CityMap
-        items={walk.tour ? [] : items}
+        // A route on screen shows its own stops, numbered; search results step aside.
+        items={walk.tour || plan ? NO_PLACES : items}
+        stops={walk.tour ? undefined : plan?.stops}
         selected={selected}
         origin={filters.origin}
         routes={routes}

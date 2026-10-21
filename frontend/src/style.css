@@ -2496,3 +2496,39 @@ tbody th {
   white-space: nowrap;
   box-shadow: var(--shadow-1);
 }
+
+/* One-tap follow-ups under the last answer. */
+.quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.quick-replies button {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--link);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+.quick-replies button:hover {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+/* Numbered stops of the route on screen. */
+.stop-pin {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--surface-1);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: var(--shadow-2);
+}

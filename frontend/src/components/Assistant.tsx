@@ -8,8 +8,25 @@ import { canListen, canSpeak, speak, stopSpeaking, useDictation, warmUpVoices } 
 import type { Walk } from "../useWalk";
 import { Explanation } from "./Explanation";
 import { GroupFitList, GroupPanel } from "./GroupPanel";
-import { ComfortNote, WhyNot } from "./Insights";
-import type { Backup } from "../api";
+import { ComfortNote } from "./Insights";
+import type { Backup, ChatResponse } from "../api";
+
+/** One-tap follow-ups for the last answer; each is sent to the chat as typed. */
+function followUps(data: ChatResponse): string[] {
+  if (data.meeting || !data.items.length) return [];
+  if (data.mini_route?.stops.length) {
+    const food = data.mini_route.stops.some((s) => s.category === "food_drink");
+    return ["quick.otherStops", "quick.closer", ...(food ? ["quick.noCafe"] : []), "quick.removeLast"];
+  }
+  const food = data.items.some((p) => p.category === "food_drink");
+  const mixed = new Set(data.items.map((p) => p.category)).size > 1;
+  return [
+    "quick.more",
+    "quick.closer",
+    ...(data.items.length >= 2 ? ["quick.removeSecond"] : []),
+    ...(food && mixed ? ["quick.noCafe"] : []),
+  ];
+}
 
 function BackupLine({ b }: { b: Backup }) {
   const t = useT();
@@ -143,24 +160,9 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
         {messages.map((m) => (
           <article key={m.id} className={"message " + m.role}>
             <small>
-              {m.role === "user" ? t("chat.you") : t("chat.assistant", { p: m.data?.provider_used || t("chat.searchProvider") })}
+              {m.role === "user" ? t("chat.you") : t("nav.chat")}
             </small>
             <p>{m.text}</p>
-            {!!m.data?.considered?.length && (
-              <div className="considered">
-                <strong>
-                  <Icon name="info" /> {t("chat.considered")}
-                </strong>
-                <dl>
-                  {m.data.considered.map((c) => (
-                    <div key={c.label}>
-                      <dt>{c.label}</dt>
-                      <dd>{c.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
             {m.data && <ComfortNote data={m.data} />}
             {m.data?.warnings.map((w) => (
               <p className="warning" key={w}>
@@ -270,19 +272,14 @@ export function Assistant({ walk, onHide }: { walk: Walk; onHide: () => void }) 
                 <small>{t("events.note")}</small>
               </div>
             )}
-            {m.data && <WhyNot data={m.data} />}
-            {m.data && (
-              <details className="trace">
-                <summary>{t("chat.trace")}</summary>
-                <ol>
-                  {m.data.steps.map((s) => (
-                    <li key={s.action}>
-                      <strong>{s.action}</strong>
-                      <span>{s.result}</span>
-                    </li>
-                  ))}
-                </ol>
-              </details>
+            {m.data && m === messages[messages.length - 1] && !walk.busy && followUps(m.data).length > 0 && (
+              <div className="quick-replies" role="group" aria-label={t("quick.label")}>
+                {followUps(m.data).map((key) => (
+                  <button key={key} onClick={() => send(t(key))}>
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
             )}
           </article>
         ))}

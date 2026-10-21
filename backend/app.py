@@ -43,6 +43,7 @@ from . import trip
 from .intent import Classifier, read_edit, read_people
 from .meet import MEET_INTENT, meet, meeting_line, people_from_text
 from .trip import add_backups, backup_text, read_edit_rules
+from . import dialog as dialogue
 from .trip import DEFAULT_FINISH_RESERVE_MIN, finish_text, stamp_finish
 
 city = None
@@ -53,9 +54,9 @@ classifier = None
 DEFAULT_TRANSFER_MIN = 30
 DEFAULT_AIRPORT_RESERVE_MIN = 60
 OFFLINE_SUMMARY = {
-    "ru": "Нашёл варианты по вашему запросу. Факты, оценки времени и ограничения приведены в карточках.",
-    "kk": "Сұрауыңыз бойынша нұсқалар табылды. Деректер, уақыт пен шектеулер карточкаларда.",
-    "en": "Here are options for your request. Facts, time estimates and limits are on the cards.",
+    "ru": "Вот что подходит:",
+    "kk": "Міне, сәйкес келетіндер:",
+    "en": "Here is what fits:",
 }
 
 
@@ -220,6 +221,8 @@ class ChatRequest(SearchRequest):
     finish_reserve_min: int | None = Field(None, ge=0, le=60)
     # The walk on screen: a message may edit it ("второе замени", "без кафе").
     route: "RouteContext | None" = None
+    # The last list answer: "ещё", "убери второе" refine it (see backend/dialog.py).
+    dialog: "DialogState | None" = None
 
     @model_validator(mode="after")
     def validate_finish(self):
@@ -279,6 +282,16 @@ class ReplanRequest(RouteContext):
     stop_id: str | None = Field(None, max_length=200)
     replacement_id: str | None = Field(None, max_length=200)
     delay_min: int = Field(15, ge=5, le=60)
+
+
+class DialogState(BaseModel):
+    """What the conversation is about, kept by the client between messages."""
+
+    query: str = Field("", max_length=1500)
+    intent: dict | None = None
+    items: list[str] = Field(default_factory=list, max_length=10)
+    shown: list[str] = Field(default_factory=list, max_length=120)
+    filters: dict = Field(default_factory=dict)
 
 
 ChatRequest.model_rebuild()
@@ -553,6 +566,69 @@ def edit_answer(req, provider, lang):
         "generated_text": False,
         "edit": out["changes"],
         "trip_state": out["state"],
+        "dialog": {"query": ctx.query, "intent": ctx.intent, "items": [s["poi_id"] for s in items],
+                   "shown": [s["poi_id"] for s in items], "filters": {}},
+    }
+
+
+def dialog_answer(req, provider, lang):
+    """The last list refined by a follow-up ("ещё", "убери второе", "без кафе"), or None
+    when the message is a new interest (then the usual search runs and the state resets)."""
+    ctx = req.dialog
+    names = [
+        ((city.byid[i].get("display_name") or "").split(",")[0], city.byid[i].get("category"))
+        for i in ctx.items
+        if i in city.byid
+    ]
+    said_group = detect_group(req.query) if GROUP_NUMBER.search(req.query) or any(
+        w in req.query.casefold() for w in GROUP_WORDS
+    ) else None
+    ops = read_edit(classifier, req.query, names) if provider == "gemini" else None
+    source = "Gemini"
+    if ops is None:
+        ops, source = read_edit_rules(req.query, len(names), said_group), "по словам запроса"
+    if not ops["is_edit"]:
+        return None
+    intent = classifier.clean(ctx.intent) if ctx.intent else None
+    origin = req.origin()
+    out = dialogue.refine(
+        city, ctx, ops, origin=origin, minutes=req.minutes, when=req.when, no_steps=req.no_steps,
+        max_snap_m=req.max_snap_m, open_only=req.open_only, strict=req.strict_amenities, intent=intent, lang=lang,
+    )
+    f = out["dialog"]["filters"]
+    in_force = [
+        label for on, label in (
+            (f.get("exclude_categories"), "без: " + ", ".join(LABELS.get(c, c).lower() for c in f.get("exclude_categories") or [])),
+            (f.get("max_walk"), f"до {f.get('max_walk')} мин пешком"),
+            (f.get("group_size"), f"компания из {f.get('group_size')}"),
+        ) if on
+    ]
+    considered = [
+        {"label": "Уточнение", "value": f"к прошлому ответу (разбор: {source})"},
+        {"label": "Запрос", "value": ctx.query or "прежний"},
+        {"label": "Уже показано", "value": f"{len(out['dialog']['shown'])} мест — в новых вариантах не повторяются"},
+    ]
+    if in_force:
+        considered.append({"label": "Действует", "value": "; ".join(in_force) + " — до нового запроса"})
+    items = out["items"]
+    return {
+        "answer": out["answer"],
+        "spoken": spoken_from_data(items, lang, None, origin) if items else out["answer"],
+        "items": items,
+        "provider_requested": provider,
+        "provider_used": "offline",
+        "warnings": [],
+        "origin": {"latitude": origin[0], "longitude": origin[1], "label": None} if origin else None,
+        "steps": [{"action": "Уточнение подборки", "result": f"разбор: {source}; показанные места исключены, время и часы проверены заново"}],
+        "mini_route": None,
+        "events": [],
+        "group": {"size": f["group_size"], "from_text": True} if f.get("group_size") else None,
+        "considered": considered,
+        "when": req.when,
+        "minutes": req.minutes,
+        "generated_facts": False,
+        "generated_text": False,
+        "dialog": out["dialog"],
     }
 
 
@@ -640,6 +716,10 @@ def chat(req: ChatRequest):
 
     if req.route is not None:
         answer = edit_answer(req, provider, lang)
+        if answer:
+            return answer
+    elif req.dialog is not None and req.dialog.items:
+        answer = dialog_answer(req, provider, lang)
         if answer:
             return answer
     if MEET_INTENT.search(req.query):
@@ -781,6 +861,12 @@ def chat(req: ChatRequest):
         """(categories, amenities) the request asks for."""
         return (set(intent["categories"]), list(intent["amenities"])) if intent else read_intents(effective_query)
 
+    # A new interest drops an old filter that contradicts it: with the "Кафе" chip on,
+    # "хочу в музей" searches museums and the chip is switched off in the interface.
+    category, cleared_category = req.category, None
+    if category and asked()[0] and category not in asked()[0]:
+        category, cleared_category = None, req.category
+
     route_mode = (
         True
         if finish and origin
@@ -795,7 +881,7 @@ def chat(req: ChatRequest):
     event_intent = bool(EVENT_INTENT.search(req.query))
     cover = (
         []
-        if req.category
+        if category
         else [(LABELS[c].lower(), c) for c in intent["categories"]] if intent and intent["combine"]
         else [] if intent
         else cover_groups(req.query)
@@ -820,7 +906,7 @@ def chat(req: ChatRequest):
         if cover:
             # "музей и кофе": candidates of each named kind, so neither crowds the other out.
             return _interleave([find(cat, max(8, limit // len(cover))) for _, cat in cover]), trace
-        return find(req.category, limit), trace
+        return find(category, limit), trace
 
     def evidenced(items):
         # Places whose requested amenities (outlets, quiet…) are confirmed or supported.
@@ -948,7 +1034,7 @@ def chat(req: ChatRequest):
             "budget": minutes,
             "finish": {k: finish[k] for k in ("latitude", "longitude", "label", "loop")} if finish else None,
             "reserve": reserve,
-            "category": req.category,
+            "category": category,
             "group_size": group or None,
             # Re-planning searches the same wish without asking the model again.
             "intent": intent,
@@ -1148,7 +1234,7 @@ def chat(req: ChatRequest):
 
     # What the answer was based on, in one place the user can check ("Учтено: …").
     preferred, wanted = asked()
-    comfort_note = comfort_summary(comfort, weather_widened(preferred, comfort, req.category))
+    comfort_note = comfort_summary(comfort, weather_widened(preferred, comfort, category))
     considered = [
         {"label": "Старт", "value": start_note},
         {"label": "Время", "value": f"{minutes} мин — {budget_note}" + (" минус резервы на вылет" if flight_context else "")},
@@ -1174,6 +1260,11 @@ def chat(req: ChatRequest):
             considered.append({"label": "Запас у финиша", "value": f"{reserve} мин — {reserve_note}"})
     if comfort_note:
         considered.append({"label": "Погода и воздух", "value": comfort_note})
+    if cleared_category:
+        considered.append({
+            "label": "Фильтр снят",
+            "value": f"«{LABELS.get(cleared_category, cleared_category)}» — запрос о другом",
+        })
     if members:
         considered.append(
             {"label": "Компания", "value": f"{group} чел.: " + "; ".join(f"{m.name} — {m.wish or 'без пожеланий'}" for m in members)}
@@ -1185,7 +1276,7 @@ def chat(req: ChatRequest):
     filters = [
         label
         for on, label in (
-            (req.category, LABELS.get(req.category or "", "").lower()),
+            (category, LABELS.get(category or "", "").lower()),
             (req.open_only, "только открытые по расписанию"),
             (req.strict_amenities, "только подтверждённые удобства"),
             (req.no_steps, "без лестниц"),
@@ -1296,6 +1387,15 @@ def chat(req: ChatRequest):
         "comfort": {**comfort, "air": current_air()},
         "funnel": trace.funnel(len(selected)),
         "rejected": trace.top(6, skip=chosen),
+        # A new search starts a new dialogue state: old refinements and shown places go.
+        "dialog": {
+            "query": effective_query,
+            "intent": intent,
+            "items": [p["poi_id"] for p in selected],
+            "shown": [p["poi_id"] for p in selected],
+            "filters": {},
+        },
+        "cleared_category": cleared_category,
     }
 
 

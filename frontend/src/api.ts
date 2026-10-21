@@ -293,6 +293,17 @@ export interface ChatResponse {
   trip_state?: ReplanResponse["state"];
   /** A meeting place for a company with different starts. */
   meeting?: { people: MeetingPerson[] };
+  /** What the conversation is about; sent back with the next message ("ещё", "убери второе"). */
+  dialog?: DialogState | null;
+  /** A category chip the new request contradicted; the interface switches it off. */
+  cleared_category?: string | null;
+}
+export interface DialogState {
+  query: string;
+  intent?: Record<string, unknown> | null;
+  items: string[];
+  shown: string[];
+  filters: Record<string, unknown>;
 }
 export interface EventMatch {
   event_id: string;
