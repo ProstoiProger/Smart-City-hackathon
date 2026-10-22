@@ -53,6 +53,7 @@ export function OptionCard({
   minutes,
   loop,
   active,
+  seen,
   onOpen,
   onHover,
 }: {
@@ -61,6 +62,8 @@ export function OptionCard({
   minutes: number;
   loop: boolean;
   active: boolean;
+  /** Visited on an earlier walk (the history in this browser). */
+  seen?: boolean;
   onOpen: () => void;
   onHover: (on: boolean) => void;
 }) {
@@ -90,6 +93,7 @@ export function OptionCard({
             </span>
           ) : null}
           <HoursBadge p={p} />
+          {seen && <span className="seen-badge">{t("ui.beenHere")}</span>}
         </span>
         {why && <span className="option-why">{why}</span>}
       </span>

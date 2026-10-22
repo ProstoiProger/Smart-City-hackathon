@@ -522,9 +522,12 @@ class City:
         comfort=None,
         trace=None,
         intent=None,
+        exclude=(),
     ):
         """`intent` is the request read by Gemini (backend/intent.py); without it the
-        rules below read the categories, kinds and amenities from the text."""
+        rules below read the categories, kinds and amenities from the text. `exclude` are
+        places the walker has already been to ("покажи новое"); a place named in the request
+        is still found."""
         # Lexical scores ignore filler words: "хочу" must not find "Хочу хинкали".
         if q.strip() and not tokens(q):
             return []  # symbols only, nothing to search for
@@ -581,6 +584,8 @@ class City:
             if not p.get("recommendation_eligible", True):
                 continue
             if closure(p):
+                continue
+            if p["poi_id"] in exclude and p["poi_id"] not in named:
                 continue
             if category and p.get("category") != category:
                 continue

@@ -290,3 +290,43 @@ test("walk buttons re-plan the route and talk in the chat", async ({ page }) => 
   await expect(page.locator(".bubble.user").filter({ hasText: `«${first.split(",")[0]}» закрыто` })).toBeVisible();
   await expect(page.locator(".bubble.user").last()).toContainText("Посетили, дальше");
 });
+
+test("walk history: kept in the browser without coordinates, marks visits, repeats and clears", async ({ page }) => {
+  await offlineChat(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await setWhen(page, "2026-10-22T13:00");
+  await page.getByLabel("Что хочется").fill("Погулять 2 часа: парк, кофе и музей");
+  await page.locator(".cta").click();
+  await expect(page.locator(".trip-panel")).toBeVisible({ timeout: 30000 });
+  const first = (await page.locator(".tl-stop strong").first().innerText()).split(",")[0].trim();
+  await page.getByRole("button", { name: "Посетили, дальше" }).click();
+
+  // Stored locally, and nothing in it locates the walker.
+  const stored = await page.evaluate(() => localStorage.getItem("walkHistory.v1") || "");
+  expect(stored).toContain(first);
+  expect(stored).not.toMatch(/latitude|longitude|51\.\d{3,}|71\.\d{3,}/);
+
+  await tab(page, "Город").click();
+  await page.locator(".tile").filter({ hasText: "История" }).click();
+  await expect(page.locator(".history-item")).toHaveCount(1);
+  await expect(page.locator(".history-place.visited")).toContainText(first);
+  await expect(page.locator(".history-stats")).toContainText("1");
+
+  // "Только новые места" sends the visited ids with the next request, and only them.
+  await page.getByLabel(/Только новые места/).check();
+  const sent = page.waitForRequest((r) => r.url().endsWith("/api/chat") && r.method() === "POST");
+  await page.getByRole("button", { name: "Повторить" }).click();
+  const body = (await sent).postDataJSON();
+  expect(body.exclude_ids).toHaveLength(1);
+  expect(body.minutes).toBe(120);
+  await expect(page.locator(".timeline, .option-card").first()).toBeVisible({ timeout: 30000 });
+  await expect(page.locator(".tl-stop strong", { hasText: first })).toHaveCount(0);
+
+  await tab(page, "Город").click();
+  await page.locator(".tile").filter({ hasText: "История" }).click();
+  await expect(page.locator(".history-item")).toHaveCount(2);
+  await page.getByRole("button", { name: "Очистить историю" }).click();
+  await expect(page.locator(".history-item")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("walkHistory.v1"))).toBeNull();
+});

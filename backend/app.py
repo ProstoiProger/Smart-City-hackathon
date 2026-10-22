@@ -195,6 +195,8 @@ class SearchRequest(Context):
     limit: int = Field(30, ge=1, le=100)
     # Company size; None lets the chat read it from the text ("нас 4", "втроём").
     group_size: int | None = Field(None, ge=1, le=10)
+    # Places from the walker's own history (kept in their browser) to leave out: "show me new places".
+    exclude_ids: list[str] = Field(default_factory=list, max_length=100)
 
 
 class GroupMember(BaseModel):
@@ -415,6 +417,7 @@ def search(req: SearchRequest):
         max_snap_m=req.max_snap_m,
         group_size=req.group_size,
         intent=intent,
+        exclude=set(req.exclude_ids),
     )
     warnings = []
     if (
@@ -901,6 +904,7 @@ def chat(req: ChatRequest):
                 effective_query, category, origin, minutes, when, req.open_only, req.no_steps,
                 n, req.strict_amenities, distinct_names=True, max_snap_m=req.max_snap_m,
                 group_size=group, max_walk_min=max_walk, comfort=comfort, trace=trace, intent=intent,
+                exclude=set(req.exclude_ids),
             )
 
         if cover:

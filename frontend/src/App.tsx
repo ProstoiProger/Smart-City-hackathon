@@ -18,6 +18,7 @@ import { PlaceDetail } from "./ui/PlaceDetail";
 import { Planner } from "./ui/Planner";
 import { Results } from "./ui/Results";
 import { StartPicker } from "./ui/StartPicker";
+import type { HistoryEntry } from "./lib/history";
 import { useWalk } from "./useWalk";
 
 type Tab = "walk" | "nearby" | "chat" | "more";
@@ -73,6 +74,25 @@ export default function App() {
   const body = useRef<HTMLDivElement>(null);
   const focusKey = useRef(0);
   const [focus, setFocus] = useState<{ point: [number, number]; key: number; zoom?: number } | null>(null);
+  // A past walk to run again once its time, mode and start are on the filters.
+  const [repeat, setRepeat] = useState<HistoryEntry | null>(null);
+  useEffect(() => {
+    if (!repeat || f.minutes !== repeat.minutes || f.walkMode !== repeat.mode) return;
+    setRepeat(null);
+    walk.chat.ask(repeat.wish || t("ui.defaultQuery"), true);
+    // Runs when the filters caught up with the walk to repeat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repeat, f.minutes, f.walkMode]);
+  const repeatWalk = (e: HistoryEntry) => {
+    f.setMinutes(e.minutes);
+    f.setWalkMode(e.mode);
+    if (e.start.key && walk.meta?.landmarks[e.start.key]) f.setLandmark(e.start.key);
+    setTab("walk");
+    setStartPicker(false);
+    setStage("results");
+    setAwaiting(true);
+    setRepeat(e);
+  };
 
   // The answer arrived (or failed): the loading steps give way to the result.
   useEffect(() => {
@@ -246,7 +266,7 @@ export default function App() {
     );
   else if (tab === "nearby") screen = <Nearby walk={walk} onOpen={openPlace} hoverId={hover} setHover={setHover} />;
   else if (tab === "chat") screen = <Chat walk={walk} onOpen={openPlace} onShowRoute={showRoute} spoken={spoken} setSpoken={setSpoken} />;
-  else screen = <More walk={walk} onCity={() => setCityOpen(true)} spoken={spoken} setSpoken={setSpoken} />;
+  else screen = <More walk={walk} onCity={() => setCityOpen(true)} onRepeat={repeatWalk} spoken={spoken} setSpoken={setSpoken} />;
 
   const screenKey = walk.selected ? "place:" + walk.selected.poi_id : tab + ":" + stage + ":" + startPicker;
 

@@ -17,6 +17,16 @@ import {
   type Weather,
 } from "./api";
 import { has, useT } from "./lib/i18n";
+import {
+  loadHistory,
+  mergePlaces,
+  newEntry,
+  readFlag,
+  saveHistory,
+  visitedIds,
+  writeFlag,
+  type HistoryEntry,
+} from "./lib/history";
 import { clockAt } from "./lib/format";
 
 export type Panel = "places" | "map" | "chat";
@@ -113,6 +123,66 @@ export function useWalk() {
   const [afisha, setAfisha] = useState<EventRecord[] | null>(null);
   const serial = useRef(0);
   const searchAbort = useRef<AbortController | null>(null);
+  // Walk history: only in this browser, without coordinates (lib/history.ts).
+  const [history, setHistoryState] = useState<HistoryEntry[]>(loadHistory);
+  const [historyOn, setHistoryOnState] = useState(() => readFlag("on"));
+  const [newOnly, setNewOnlyState] = useState(() => readFlag("newOnly"));
+  // The entry of the walk on screen: follow-ups and walk buttons update it.
+  const entryId = useRef<string | null>(null);
+
+  function setHistory(update: (h: HistoryEntry[]) => HistoryEntry[]) {
+    setHistoryState((h) => {
+      const next = update(h);
+      saveHistory(next);
+      return next;
+    });
+  }
+
+  function setHistoryOn(on: boolean) {
+    setHistoryOnState(on);
+    writeFlag("on", on);
+  }
+
+  function setNewOnly(on: boolean) {
+    setNewOnlyState(on);
+    writeFlag("newOnly", on);
+  }
+
+  function clearHistory() {
+    entryId.current = null;
+    setHistory(() => []);
+  }
+
+  /** The start as history keeps it: a landmark or a generic label, never coordinates. */
+  function startForHistory(): HistoryEntry["start"] {
+    if (landmarkKey) return { key: landmarkKey, label: meta?.landmarks[landmarkKey]?.name ?? landmarkKey };
+    return { label: originLabel };
+  }
+
+  /** A new answer: a new entry for a fresh request, otherwise the current walk changes. */
+  function remember(fresh: boolean, wish: string, places: Poi[], route: boolean, budget: number) {
+    if (!historyOn || !places.length) return;
+    const id = entryId.current;
+    if (fresh || !id) {
+      const entry = newEntry({ minutes: budget, mode: finishKey === "loop" ? "loop" : "oneway", route, start: startForHistory(), wish, places });
+      entryId.current = entry.id;
+      setHistory((h) => [entry, ...h]);
+      return;
+    }
+    setHistory((h) => h.map((e) => (e.id === id ? { ...e, route, minutes: budget, places: mergePlaces(e.places, places) } : e)));
+  }
+
+  function markPlace(poiId: string, status: "visited" | "closed" | "planned", entry = entryId.current) {
+    if (!entry) return;
+    setHistory((h) =>
+      h.map((e) => (e.id === entry ? { ...e, places: e.places.map((p) => (p.id === poiId ? { ...p, status } : p)) } : e)),
+    );
+  }
+
+  function forgetWalk(id: string) {
+    if (entryId.current === id) entryId.current = null;
+    setHistory((h) => h.filter((e) => e.id !== id));
+  }
 
   // Notices (not errors) are hints; they leave on their own instead of covering the card.
   useEffect(() => {
@@ -134,6 +204,8 @@ export function useWalk() {
     group_size: groupSize > 1 ? groupSize : null,
     airport_transfer_min: airportTransfer === "" ? null : Number(airportTransfer),
     airport_reserve_min: airportReserve === "" ? null : Number(airportReserve),
+    // "Только новые места": ids of places visited on earlier walks; the history itself stays here.
+    exclude_ids: newOnly ? visitedIds(history) : [],
   });
 
   /** `nextCategory` lets a category chip search right away, before the state update lands. */
@@ -179,7 +251,8 @@ export function useWalk() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function ask(text: string) {
+  /** `fresh`: a new walk from the planner (a new history entry), not a follow-up. */
+  async function ask(text: string, fresh = false) {
     const clean = text.trim();
     if (!clean || busy) return;
     setBusy(true);
@@ -199,11 +272,14 @@ export function useWalk() {
         members: members.length >= 2 ? members : undefined,
         ...finishBody(),
         // The walk on screen: the message may edit it ("второе замени", "без кафе").
-        route: routeContext(),
-        dialog: routeContext() ? undefined : (dialog ?? undefined),
+        // A fresh walk (planner, repeat from history) starts over instead of editing it.
+        route: fresh ? undefined : routeContext(),
+        dialog: fresh || routeContext() ? undefined : (dialog ?? undefined),
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
       setAnswer(data);
+      const stops = data.mini_route?.stops.length ? data.mini_route.stops : data.items;
+      remember(fresh, clean, stops, !!data.mini_route?.stops.length, data.mini_route?.budget_minutes ?? data.minutes);
       setItems(data.items);
       setItemsSource("answer");
       setSelected(undefined);
@@ -323,6 +399,7 @@ export function useWalk() {
     const after = { ...plan, stops: rest, legs: plan.legs.slice(1) };
     say(t("trip.visited"));
     reply(nextLine(rest, plan), after);
+    markPlace(s.poi_id, "visited");
     setPlan(after);
     setTrip({
       ...trip,
@@ -383,6 +460,8 @@ export function useWalk() {
         ? { ...data.plan, session: trip.session }
         : { ...plan, stops: [], legs: [], finish: undefined };
       setPlan(after);
+      if (closing) markPlace(next.poi_id, "closed");
+      if (data.plan) remember(false, trip.session.query, data.plan.stops, true, trip.session.budget);
       reply(data.answer, after);
     } catch (e) {
       setError(message(e, "err.replan"));
@@ -399,6 +478,7 @@ export function useWalk() {
     try {
       const data = await request<Plan>("plan", { ...ctx(), poi_ids: ids });
       setPlan(data);
+      remember(true, data.stops.map((p) => p.display_name.split(",")[0]).join(", "), data.stops, true, minutes);
       setSelected(undefined);
       setPanel("map");
       setNotice(data.stops.length ? "" : t("notice.planEmpty"));
@@ -513,6 +593,7 @@ export function useWalk() {
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
     chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
+    history: { entries: history, on: historyOn, setOn: setHistoryOn, newOnly, setNewOnly, clear: clearHistory, markPlace, forget: forgetWalk },
     answer, itemsSource,
     afishaState: { afisha, setAfisha, openAfisha },
     tour, setTour,

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { AfishaPanel } from "../components/Overlays";
 import { ToursPanel } from "../components/ToursPanel";
+import type { HistoryEntry } from "../lib/history";
+import { History } from "./History";
 import { Emo } from "../lib/Emo";
 import { Icon } from "../lib/Icon";
 import { locale, useT } from "../lib/i18n";
@@ -12,17 +14,21 @@ import type { Walk } from "../useWalk";
 export function More({
   walk,
   onCity,
+  onRepeat,
   spoken,
   setSpoken,
 }: {
   walk: Walk;
   onCity: () => void;
+  onRepeat: (e: HistoryEntry) => void;
   spoken: boolean;
   setSpoken: (v: boolean) => void;
 }) {
   const t = useT();
   const { theme, toggleTheme, lang } = usePrefs();
   const [tours, setTours] = useState(!!walk.tour);
+  const [history, setHistory] = useState(false);
+  if (history) return <History walk={walk} onBack={() => setHistory(false)} onRepeat={onRepeat} />;
   if (walk.afishaState.afisha !== null)
     return (
       <div className="screen embedded">
@@ -39,6 +45,7 @@ export function More({
     { key: "afisha", emoji: "🎟️", onClick: walk.afishaState.openAfisha },
     { key: "tours", emoji: "🌇", onClick: () => setTours(true) },
     { key: "gaps", emoji: "👀", onClick: onCity },
+    { key: "history", emoji: "📚", onClick: () => setHistory(true) },
   ];
   return (
     <div className="screen more">

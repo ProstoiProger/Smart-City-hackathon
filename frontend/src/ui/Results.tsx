@@ -11,6 +11,7 @@ import { GroupFitList } from "../components/GroupPanel";
 import { ComfortNote } from "../components/Insights";
 import { Emoji, HoursBadge, OptionCard, shortName } from "./PlaceCard";
 import { Ring, RingLegend, type Segment } from "./Ring";
+import { visitedIds } from "../lib/history";
 
 /** One-tap follow-ups for the last answer; each is sent as typed. */
 export function followUps(data: ChatResponse): string[] {
@@ -325,6 +326,7 @@ export function Results({
   const minutes = plan?.budget_minutes ?? data?.minutes ?? walk.filters.minutes;
   const loop = plan ? !!plan.finish?.loop : walk.filters.walkMode === "loop";
   const routeShown = !!plan && (plan.stops.length > 0 || !!plan.finish || !!walk.trip?.history.length);
+  const seen = new Set(visitedIds(walk.history.entries));
   const start = plan?.session?.start_at;
   const share = async () => {
     const lines = [
@@ -385,6 +387,7 @@ export function Results({
                 minutes={minutes}
                 loop={loop}
                 active={hoverId === p.poi_id}
+                seen={seen.has(p.poi_id)}
                 onOpen={() => onOpen(p)}
                 onHover={(on) => setHover(on ? p.poi_id : null)}
               />

@@ -4,6 +4,7 @@ import { comfortLabel } from "../lib/format";
 import { Emo } from "../lib/Emo";
 import { Icon } from "../lib/Icon";
 import { LANDMARK_EMOJI } from "../lib/emoji";
+import { visitedIds } from "../lib/history";
 import { has, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
 import { canListen, stopSpeaking, useDictation } from "../lib/voice";
@@ -93,7 +94,7 @@ export function Planner({ walk, onStartPicker, onGo }: { walk: Walk; onStartPick
     if (walk.busy) return;
     stopSpeaking();
     onGo();
-    walk.chat.ask(query);
+    walk.chat.ask(query, true);
   };
 
   const mic = useDictation(
@@ -257,6 +258,15 @@ export function Planner({ walk, onStartPicker, onGo }: { walk: Walk; onStartPick
             <input type="checkbox" checked={walk.chat.miniRoute} onChange={(e) => walk.chat.setMiniRoute(e.target.checked)} />
             <span>{t("ui.severalStops")}</span>
           </label>
+          {walk.history.on && (
+            <label className="switch">
+              <input type="checkbox" checked={walk.history.newOnly} onChange={(e) => walk.history.setNewOnly(e.target.checked)} />
+              <span>
+                {t("ui.history.newOnly")}
+                <small>{t("ui.history.newOnlyHint", { n: visitedIds(walk.history.entries).length })}</small>
+              </span>
+            </label>
+          )}
           <label className="switch">
             <input type="checkbox" checked={f.openOnly} onChange={(e) => f.setOpenOnly(e.target.checked)} />
             <span>{t("filters.openOnly")}</span>
