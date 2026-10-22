@@ -322,8 +322,8 @@ test("walk history: kept in the browser without coordinates, marks visits, repea
   await expect(page.locator(".timeline, .option-card").first()).toBeVisible({ timeout: 30000 });
   await expect(page.locator(".tl-stop strong", { hasText: first })).toHaveCount(0);
 
+  // "Город" reopens on the history it was showing.
   await tab(page, "Город").click();
-  await page.locator(".tile").filter({ hasText: "История" }).click();
   await expect(page.locator(".history-item")).toHaveCount(2);
   await page.getByRole("button", { name: "Очистить историю" }).click();
   await expect(page.locator(".history-item")).toHaveCount(0);
@@ -360,4 +360,62 @@ test("company tab: wishes of everyone, and a meeting point when starts differ", 
   await page.locator(".cta").click();
   await expect(page.locator(".option-extra").filter({ hasText: "Алия" }).first()).toBeVisible({ timeout: 30000 });
   await expect(page.locator(".map-person").filter({ hasText: "Алия" })).toBeVisible();
+});
+
+test("my places: want to go and favourites, on the map, saved walks", async ({ page }) => {
+  await offlineChat(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await setWhen(page, "2026-10-22T13:00");
+  // "Город" remembers the open list: a tile is needed only the first time.
+  const open = async () => {
+    await tab(page, "Город").click();
+    if (!(await page.locator(".my-places").count())) await page.locator(".tile").filter({ hasText: "Мои места" }).click();
+    await expect(page.locator(".my-places")).toBeVisible();
+  };
+
+  // Save a place from its card on both lists.
+  await tab(page, "Места").click();
+  await page.locator(".place-row").first().click();
+  const name = (await page.locator(".place-detail .screen-title").innerText()).trim();
+  await page.locator(".place-detail").getByRole("button", { name: "Хочу сходить" }).click();
+  await page.locator(".place-detail").getByRole("button", { name: "В избранное" }).click();
+  await expect(page.locator(".place-detail").getByRole("button", { name: "В избранное" })).toHaveAttribute("aria-pressed", "true");
+  expect(await page.evaluate(() => localStorage.getItem("savedPlaces.v1"))).toContain(name);
+
+  await open();
+  await expect(page.locator(".part-tabs [aria-selected=true] .count")).toHaveText("1");
+  for (const filter of ["Хочу сходить", "Избранное", "Все"]) {
+    await page.getByRole("radio", { name: filter }).click();
+    await expect(page.locator(".saved-item")).toHaveCount(1);
+  }
+  await page.getByLabel(/Показать на карте/).check();
+  await expect(page.locator(".map-pin.saved")).toHaveCount(1);
+  await page.locator(".saved-open").click();
+  await expect(page.locator(".place-detail .screen-title")).toHaveText(name);
+  await page.getByRole("button", { name: "Назад" }).click();
+
+  // Off one list it stays on the other; off both it is gone.
+  await page.getByRole("button", { name: `Хочу сходить: ${name}` }).click();
+  await page.getByRole("radio", { name: "Хочу сходить" }).click();
+  await expect(page.locator(".saved-item")).toHaveCount(0);
+  await page.getByRole("radio", { name: "Все" }).click();
+  await page.getByRole("button", { name: `В избранное: ${name}` }).click();
+  await expect(page.locator(".saved-item")).toHaveCount(0);
+  await expect(page.locator(".map-pin.saved")).toHaveCount(0);
+
+  // A walk saved from its result repeats from "Прогулки".
+  await tab(page, "Маршрут").click();
+  await page.getByLabel("Что хочется").fill("Погулять 2 часа: парк, кофе и музей");
+  await page.locator(".cta").click();
+  await expect(page.locator(".timeline")).toBeVisible({ timeout: 30000 });
+  await page.getByRole("button", { name: "Сохранить прогулку" }).click();
+  await expect(page.getByRole("button", { name: "Сохранить прогулку" })).toHaveAttribute("aria-pressed", "true");
+  await open();
+  await page.getByRole("tab", { name: /Прогулки/ }).click();
+  await expect(page.locator(".history-item")).toHaveCount(1);
+  const sent = page.waitForRequest((r) => r.url().endsWith("/api/chat") && r.method() === "POST");
+  await page.getByRole("button", { name: "Повторить" }).click();
+  expect((await sent).postDataJSON().query).toContain("парк, кофе и музей");
+  await expect(page.locator(".timeline").first()).toBeVisible({ timeout: 30000 });
 });

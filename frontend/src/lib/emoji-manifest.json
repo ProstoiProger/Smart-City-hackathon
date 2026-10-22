@@ -47,6 +47,10 @@
 "file": "2744",
 "animated": true
 },
+"❤️": {
+"file": "2764",
+"animated": true
+},
 "⭐": {
 "file": "2b50",
 "animated": true
@@ -219,6 +223,10 @@
 "file": "1f463",
 "animated": true
 },
+"💖": {
+"file": "1f496",
+"animated": true
+},
 "💡": {
 "file": "1f4a1",
 "animated": true
@@ -267,6 +275,10 @@
 "file": "1f512",
 "animated": true
 },
+"🔖": {
+"file": "1f516",
+"animated": false
+},
 "🔮": {
 "file": "1f52e",
 "animated": true
@@ -299,12 +311,24 @@
 "file": "1f5ff",
 "animated": true
 },
+"😋": {
+"file": "1f60b",
+"animated": true
+},
 "😌": {
 "file": "1f60c",
 "animated": true
 },
+"😎": {
+"file": "1f60e",
+"animated": true
+},
 "😮‍💨": {
 "file": "1f62e_200d_1f4a8",
+"animated": true
+},
+"🙂": {
+"file": "1f642",
 "animated": true
 },
 "🚀": {
@@ -331,6 +355,14 @@
 "file": "1f6df",
 "animated": true
 },
+"🤗": {
+"file": "1f917",
+"animated": true
+},
+"🤩": {
+"file": "1f929",
+"animated": true
+},
 "🥐": {
 "file": "1f950",
 "animated": false
@@ -338,6 +370,10 @@
 "🥡": {
 "file": "1f961",
 "animated": false
+},
+"🥳": {
+"file": "1f973",
+"animated": true
 },
 "🥵": {
 "file": "1f975",
@@ -373,6 +409,10 @@
 },
 "🫧": {
 "file": "1fae7",
+"animated": true
+},
+"🫶": {
+"file": "1faf6",
 "animated": true
 }
 }

@@ -3192,3 +3192,246 @@ button {
   font-size: 13px;
   color: var(--text-2);
 }
+
+/* ───────────── My places ───────────── */
+.screen-title.with-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.screen-title.with-icon .ic {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+.part-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-strong);
+}
+.part-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 12px !important;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-2);
+  border-bottom: 2.5px solid transparent !important;
+  margin-bottom: -1px;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.part-tabs button[aria-selected="true"] {
+  color: var(--text-1);
+  border-bottom-color: var(--accent) !important;
+}
+.part-tabs .count {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--surface-3);
+  font-size: 12px;
+  font-weight: 750;
+}
+.part-tabs button[aria-selected="true"] .count {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filter-pills button {
+  padding: 9px 16px !important;
+  border-radius: var(--r-pill) !important;
+  background: var(--surface-1) !important;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.filter-pills button[aria-checked="true"] {
+  background: var(--accent) !important;
+  color: var(--text-on-accent);
+}
+label.setting {
+  cursor: pointer;
+}
+.setting > .ic {
+  color: var(--accent);
+}
+.setting > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+.setting small {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.toggle-input {
+  appearance: none;
+  flex-shrink: 0;
+  width: 42px;
+  height: 25px;
+  margin: 0;
+  border-radius: 13px;
+  background: var(--surface-3);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle-input::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--text-2);
+  transition:
+    transform 0.22s var(--ease-out),
+    background 0.2s;
+}
+.toggle-input:checked {
+  background: var(--accent);
+}
+.toggle-input:checked::after {
+  transform: translateX(17px);
+  background: #fff;
+}
+.toggle-input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.empty-big {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 26px 16px;
+  text-align: center;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.empty-big strong {
+  color: var(--text-1);
+  font-size: 16px;
+}
+.empty-icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+}
+.empty-icon .emo {
+  width: 40px;
+  height: 40px;
+}
+.empty-icon:hover .emo-anim {
+  display: block;
+}
+.empty-icon:hover .emo.ready .emo-still {
+  visibility: hidden;
+}
+.saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 10px;
+  border-radius: 18px;
+  background: var(--surface-1);
+  animation: rise 0.35s var(--ease-out) both;
+}
+.saved-open {
+  flex: 1;
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.saved-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.saved-body strong {
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-body small {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.saved-marks {
+  display: flex;
+  gap: 4px;
+}
+.mark-btn {
+  width: 38px;
+  height: 38px;
+  display: grid !important;
+  place-items: center;
+  border-radius: 50% !important;
+  background: var(--surface-3) !important;
+  color: var(--text-2) !important;
+  transition:
+    color 0.2s,
+    background 0.2s,
+    transform 0.15s var(--ease-out);
+}
+.mark-btn:active {
+  transform: scale(0.88);
+}
+.mark-btn.on.want {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+.mark-btn.on.fav {
+  color: #fb7185 !important;
+  background: rgba(251, 113, 133, 0.14) !important;
+}
+.mark-btn.on .ic {
+  fill: currentColor;
+  animation: pop 0.35s var(--ease-out);
+}
+.mark-btn:disabled {
+  cursor: default;
+}
+.round-btn.mark-btn {
+  width: 40px;
+  height: 40px;
+}
+.map-pin-num.heart {
+  background: var(--surface-1);
+  padding: 0;
+  min-width: 22px;
+  height: 22px;
+}
+.map-pin-num.heart .emo {
+  width: 14px;
+  height: 14px;
+}
+.map-pin.saved .map-pin-face {
+  border-style: dashed;
+}

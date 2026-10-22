@@ -275,6 +275,30 @@ export function PlaceDetail({ walk, p: place, onBack, onRoute }: { walk: Walk; p
           <Icon name="arrow-left" /> {t("ui.back")}
         </button>
         <span className="spacer" />
+        <button
+          className={"round-btn mark-btn want" + (walk.saved.has(p.poi_id, "want") ? " on" : "")}
+          aria-pressed={walk.saved.has(p.poi_id, "want")}
+          aria-label={t("ui.saved.want")}
+          title={t("ui.saved.want")}
+          onClick={() => {
+            walk.notify(t(walk.saved.has(p.poi_id, "want") ? "ui.saved.removed" : "ui.saved.addedWant"));
+            walk.saved.toggle(p, "want");
+          }}
+        >
+          <Icon name="bookmark" />
+        </button>
+        <button
+          className={"round-btn mark-btn fav" + (walk.saved.has(p.poi_id, "fav") ? " on" : "")}
+          aria-pressed={walk.saved.has(p.poi_id, "fav")}
+          aria-label={t("ui.saved.fav")}
+          title={t("ui.saved.fav")}
+          onClick={() => {
+            walk.notify(t(walk.saved.has(p.poi_id, "fav") ? "ui.saved.removed" : "ui.saved.addedFav"));
+            walk.saved.toggle(p, "fav");
+          }}
+        >
+          <Icon name="heart" />
+        </button>
         <button className="round-btn" onClick={share} aria-label={t("ui.share")} title={t("ui.share")}>
           <Icon name="share-2" />
         </button>

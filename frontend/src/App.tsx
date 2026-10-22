@@ -13,7 +13,7 @@ import { canSpeak, speak, warmUpVoices } from "./lib/voice";
 import { MapView, type MapLine, type MapPin } from "./MapView";
 import { Chat } from "./ui/Chat";
 import { Group } from "./ui/Group";
-import { More } from "./ui/More";
+import { More, type MoreView } from "./ui/More";
 import { Nearby } from "./ui/Nearby";
 import { PlaceDetail } from "./ui/PlaceDetail";
 import { Planner } from "./ui/Planner";
@@ -69,6 +69,7 @@ export default function App() {
   const [awaiting, setAwaiting] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
   const [cityOpen, setCityOpen] = useState(false);
+  const [moreView, setMoreView] = useState<MoreView>(null);
   const [tileError, setTileError] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(true);
   const [spoken, setSpoken] = useStored("spokenReplies", true);
@@ -157,6 +158,8 @@ export default function App() {
     setStage("results");
   };
   const switchTab = (next: Tab) => {
+    // Tapping "Город" again goes back to its tiles.
+    if (next === "more" && tab === "more" && !walk.selected) setMoreView(null);
     walk.selectPlace(undefined, false);
     setStartPicker(false);
     f.setPicking(false);
@@ -214,12 +217,19 @@ export default function App() {
       }
       key = "answer:" + items.map((p) => p.poi_id).join(",");
     }
+    // "Мои места" on the map: every saved place not already drawn, with a heart.
+    if (walk.saved.onMap && !walk.tour)
+      for (const s of walk.saved.places)
+        if (!pins.some((p) => p.id === s.id))
+          pins.push({ id: s.id, lat: s.latitude, lon: s.longitude, emoji: placeEmoji(s), color: categoryColor(s.category), label: s.name, saved: true });
+    // With nothing else on the map, it fits the saved places.
+    if (!key && walk.saved.onMap && walk.saved.places.length) key = "saved:" + walk.saved.places.map((s) => s.id).join();
     const sel = walk.selected;
     if (sel && !pins.some((p) => p.id === sel.poi_id)) pins.push(pinOf(sel));
     if (sel?.route && !lines.some((l) => l.tone === "main" && l.geometry === sel.route!.geometry) && !(answerShown && plan))
       lines.push({ geometry: sel.route.geometry, tone: "main" });
     return { pins, lines, finish, people, key };
-  }, [walk.tour, walk.items, walk.plan, walk.answer, walk.meeting, walk.selected, walk.trip, tab, answerShown, hover]);
+  }, [walk.tour, walk.items, walk.plan, walk.answer, walk.meeting, walk.selected, walk.trip, walk.saved.onMap, walk.saved.places, tab, answerShown, hover]);
 
   // The hover only re-colours lines: the fit waits for a new set of places.
   const fitKey = scene.key;
@@ -280,7 +290,7 @@ export default function App() {
       />
     );
   else if (tab === "chat") screen = <Chat walk={walk} onOpen={openPlace} onShowRoute={showRoute} spoken={spoken} setSpoken={setSpoken} />;
-  else screen = <More walk={walk} onCity={() => setCityOpen(true)} onRepeat={repeatWalk} spoken={spoken} setSpoken={setSpoken} />;
+  else screen = <More walk={walk} onCity={() => setCityOpen(true)} onRepeat={repeatWalk} view={moreView} setView={setMoreView} spoken={spoken} setSpoken={setSpoken} />;
 
   const screenKey = walk.selected ? "place:" + walk.selected.poi_id : tab + ":" + stage + ":" + startPicker;
 
@@ -308,6 +318,7 @@ export default function App() {
             }
             const p = [...(walk.plan?.stops ?? []), ...(walk.answer?.items ?? []), ...walk.items].find((x) => x.poi_id === id);
             if (p) openPlace(p);
+            else if (walk.saved.places.some((s) => s.id === id)) walk.saved.open(id);
           }}
           onHover={setHover}
           onPick={walk.pickOrigin}

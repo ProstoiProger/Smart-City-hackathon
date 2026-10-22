@@ -27,6 +27,19 @@ import {
   writeFlag,
   type HistoryEntry,
 } from "./lib/history";
+import {
+  loadPlaces,
+  loadWalks,
+  readSavedFlag,
+  savePlaces,
+  saveWalks,
+  togglePlace,
+  writeSavedFlag,
+  type PlaceRef,
+  type SavedList,
+  type SavedPlace,
+  type SavedWalk,
+} from "./lib/saved";
 import { clockAt } from "./lib/format";
 
 export type Panel = "places" | "map" | "chat";
@@ -129,6 +142,52 @@ export function useWalk() {
   const [newOnly, setNewOnlyState] = useState(() => readFlag("newOnly"));
   // The entry of the walk on screen: follow-ups and walk buttons update it.
   const entryId = useRef<string | null>(null);
+  // "Мои места": lists of places and saved walks, also only in this browser (lib/saved.ts).
+  const [savedPlaces, setSavedPlacesState] = useState<SavedPlace[]>(loadPlaces);
+  const [savedWalks, setSavedWalksState] = useState<SavedWalk[]>(loadWalks);
+  const [savedOnMap, setSavedOnMapState] = useState(() => readSavedFlag("onMap"));
+  const [savedUnseen, setSavedUnseenState] = useState(() => readSavedFlag("unseen"));
+
+  function setSavedPlaces(update: (s: SavedPlace[]) => SavedPlace[]) {
+    setSavedPlacesState((s) => {
+      const next = update(s);
+      savePlaces(next);
+      return next;
+    });
+  }
+
+  function setSavedWalks(update: (s: SavedWalk[]) => SavedWalk[]) {
+    setSavedWalksState((s) => {
+      const next = update(s);
+      saveWalks(next);
+      return next;
+    });
+  }
+
+  /** The walk on screen as a saved walk: its stops (or options), budget, mode, start and words. */
+  function saveCurrentWalk() {
+    const stops = plan?.stops.length ? plan.stops : (answer?.items ?? []);
+    if (!stops.length) return;
+    const wish = [...messages].reverse().find((m) => m.role === "user")?.text ?? "";
+    const entry = newEntry({
+      minutes: plan?.budget_minutes ?? answer?.minutes ?? minutes,
+      mode: finishKey === "loop" ? "loop" : "oneway",
+      route: !!plan?.stops.length,
+      start: startForHistory(),
+      wish,
+      places: stops,
+    });
+    setSavedWalks((s) => [entry, ...s.filter((w) => w.places.map((p) => p.id).join() !== entry.places.map((p) => p.id).join())]);
+  }
+
+  /** A saved place opened from the list: its card comes from the server by id. */
+  async function openSaved(id: string) {
+    try {
+      selectPlace(await request<Poi>(`pois/${encodeURIComponent(id)}`), false);
+    } catch (e) {
+      setError(message(e, "err.search"));
+    }
+  }
 
   function setHistory(update: (h: HistoryEntry[]) => HistoryEntry[]) {
     setHistoryState((h) => {
@@ -596,6 +655,26 @@ export function useWalk() {
     },
     chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
     history: { entries: history, on: historyOn, setOn: setHistoryOn, newOnly, setNewOnly, clear: clearHistory, markPlace, forget: forgetWalk },
+    saved: {
+      places: savedPlaces,
+      walks: savedWalks,
+      toggle: (p: PlaceRef, list: SavedList) => setSavedPlaces((s) => togglePlace(s, p, list)),
+      remove: (id: string) => setSavedPlaces((s) => s.filter((x) => x.id !== id)),
+      has: (id: string, list: SavedList) => savedPlaces.some((x) => x.id === id && x[list]),
+      saveWalk: saveCurrentWalk,
+      removeWalk: (id: string) => setSavedWalks((s) => s.filter((w) => w.id !== id)),
+      onMap: savedOnMap,
+      setOnMap: (v: boolean) => {
+        setSavedOnMapState(v);
+        writeSavedFlag("onMap", v);
+      },
+      unseen: savedUnseen,
+      setUnseen: (v: boolean) => {
+        setSavedUnseenState(v);
+        writeSavedFlag("unseen", v);
+      },
+      open: openSaved,
+    },
     answer, itemsSource,
     afishaState: { afisha, setAfisha, openAfisha },
     tour, setTour,

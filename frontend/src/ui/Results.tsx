@@ -327,6 +327,8 @@ export function Results({
   const loop = plan ? !!plan.finish?.loop : walk.filters.walkMode === "loop";
   const routeShown = !!plan && (plan.stops.length > 0 || !!plan.finish || !!walk.trip?.history.length);
   const seen = new Set(visitedIds(walk.history.entries));
+  const shownIds = (routeShown ? plan!.stops : (data?.items ?? [])).map((p) => p.poi_id).join();
+  const walkSaved = !!shownIds && walk.saved.walks.some((w) => w.places.map((p) => p.id).join() === shownIds);
   const start = plan?.session?.start_at;
   const share = async () => {
     const lines = [
@@ -349,6 +351,21 @@ export function Results({
           <Icon name="arrow-left" /> {t("ui.change")}
         </button>
         <span className="spacer" />
+        {!pending && shownIds && (
+          <button
+            className={"round-btn mark-btn want" + (walkSaved ? " on" : "")}
+            aria-pressed={walkSaved}
+            aria-label={t("ui.saved.saveWalk")}
+            title={t("ui.saved.saveWalk")}
+            disabled={walkSaved}
+            onClick={() => {
+              walk.saved.saveWalk();
+              walk.notify(t("ui.saved.walkSaved"));
+            }}
+          >
+            <Icon name="bookmark" />
+          </button>
+        )}
         {(data || routeShown) && (
           <button className="round-btn" onClick={share} aria-label={t("ui.share")} title={t("ui.share")}>
             <Icon name="share-2" />

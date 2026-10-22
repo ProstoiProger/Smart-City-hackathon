@@ -20,6 +20,8 @@ export type MapPin = {
   label: string;
   number?: number;
   state?: "done" | "current";
+  /** A place from "Мои места" shown on the map: a small heart instead of a number. */
+  saved?: boolean;
 };
 export type MapLine = { geometry: LatLon[]; tone: "main" | "alt" | "back" | "muted" | "link" };
 
@@ -104,7 +106,7 @@ function emojiNode(e: string) {
 function pinElement(p: MapPin, onClick: () => void, onHover: (on: boolean) => void) {
   const el = document.createElement("button");
   el.type = "button";
-  el.className = "map-pin" + (p.number ? " numbered" : "") + (p.state ? " " + p.state : "");
+  el.className = "map-pin" + (p.number ? " numbered" : "") + (p.state ? " " + p.state : "") + (p.saved ? " saved" : "");
   el.style.setProperty("--pin", p.color);
   el.setAttribute("aria-label", p.label);
   el.title = p.label;
@@ -116,6 +118,11 @@ function pinElement(p: MapPin, onClick: () => void, onHover: (on: boolean) => vo
     const n = document.createElement("span");
     n.className = "map-pin-num";
     n.textContent = String(p.number);
+    el.append(n);
+  } else if (p.saved) {
+    const n = document.createElement("span");
+    n.className = "map-pin-num heart";
+    n.append(emojiNode("❤️"));
     el.append(n);
   }
   el.addEventListener("click", (e) => {
