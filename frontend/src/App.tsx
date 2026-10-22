@@ -12,6 +12,7 @@ import { usePrefs } from "./lib/prefs";
 import { canSpeak, speak, warmUpVoices } from "./lib/voice";
 import { MapView, type MapLine, type MapPin } from "./MapView";
 import { Chat } from "./ui/Chat";
+import { Group } from "./ui/Group";
 import { More } from "./ui/More";
 import { Nearby } from "./ui/Nearby";
 import { PlaceDetail } from "./ui/PlaceDetail";
@@ -21,10 +22,11 @@ import { StartPicker } from "./ui/StartPicker";
 import type { HistoryEntry } from "./lib/history";
 import { useWalk } from "./useWalk";
 
-type Tab = "walk" | "nearby" | "chat" | "more";
+type Tab = "walk" | "nearby" | "group" | "chat" | "more";
 const TABS: { key: Tab; icon: string }[] = [
   { key: "walk", icon: "navigation" },
   { key: "nearby", icon: "compass" },
+  { key: "group", icon: "users" },
   { key: "chat", icon: "sparkles" },
   { key: "more", icon: "layout-grid" },
 ];
@@ -265,6 +267,18 @@ export default function App() {
       />
     );
   else if (tab === "nearby") screen = <Nearby walk={walk} onOpen={openPlace} hoverId={hover} setHover={setHover} />;
+  else if (tab === "group")
+    screen = (
+      <Group
+        walk={walk}
+        onGo={() => {
+          setTab("walk");
+          setStartPicker(false);
+          setAwaiting(true);
+          setStage("results");
+        }}
+      />
+    );
   else if (tab === "chat") screen = <Chat walk={walk} onOpen={openPlace} onShowRoute={showRoute} spoken={spoken} setSpoken={setSpoken} />;
   else screen = <More walk={walk} onCity={() => setCityOpen(true)} onRepeat={repeatWalk} spoken={spoken} setSpoken={setSpoken} />;
 

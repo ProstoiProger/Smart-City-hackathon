@@ -613,6 +613,20 @@ const ru: Record<string, string> = {
   "ui.history.clear": "Очистить историю",
   "ui.history.cleared": "История очищена",
   "ui.beenHere": "Вы здесь были",
+  "ui.tab.group": "Компания",
+  "ui.group.title": "Гуляем компанией",
+  "ui.group.sub": "Каждый пишет, чего хочет и откуда идёт. Подберу место, которое устроит всех, или точку встречи.",
+  "ui.group.count": "Сколько вас",
+  "ui.group.you": "Вы",
+  "ui.group.names": "Алия,Данияр,Мадина,Тимур,Жанна",
+  "ui.group.wishOf": "Чего хочет {name}",
+  "ui.group.fromOf": "Откуда идёт {name}",
+  "ui.group.fromCommon": "Вместе с вами: {name}",
+  "ui.group.fitHint": "Все стартуют вместе: подберу место, где никто не останется в стороне.",
+  "ui.group.meetHint": "Стартуете из разных мест: найду точку встречи, куда всем идти примерно поровну.",
+  "ui.group.start": "Общий старт: {name}",
+  "ui.group.goMeet": "Где встретиться",
+  "ui.group.ctaSub": "Для компании из {n}",
 };
 
 const kk: Record<string, string> = {
@@ -1228,6 +1242,20 @@ const kk: Record<string, string> = {
   "ui.history.clear": "Тарихты тазалау",
   "ui.history.cleared": "Тарих тазаланды",
   "ui.beenHere": "Осында болғансыз",
+  "ui.tab.group": "Топ",
+  "ui.group.title": "Топпен серуен",
+  "ui.group.sub": "Әркім не қалайтынын және қайдан шығатынын жазады. Барлығына ыңғайлы орынды немесе кездесу нүктесін табамын.",
+  "ui.group.count": "Неше адамсыздар",
+  "ui.group.you": "Сіз",
+  "ui.group.names": "Әлия,Данияр,Мадина,Тимур,Жанна",
+  "ui.group.wishOf": "{name} не қалайды",
+  "ui.group.fromOf": "{name} қайдан шығады",
+  "ui.group.fromCommon": "Сізбен бірге: {name}",
+  "ui.group.fitHint": "Бәрі бірге шығады: ешкім шетте қалмайтын орын табамын.",
+  "ui.group.meetHint": "Әр жерден шығасыздар: бәріне шамамен бірдей жүретін кездесу нүктесін табамын.",
+  "ui.group.start": "Ортақ бастау: {name}",
+  "ui.group.goMeet": "Қайда кездесеміз",
+  "ui.group.ctaSub": "{n} адамдық топқа",
 };
 
 const en: Record<string, string> = {
@@ -1830,6 +1858,20 @@ const en: Record<string, string> = {
   "ui.history.clear": "Clear history",
   "ui.history.cleared": "History cleared",
   "ui.beenHere": "Been here",
+  "ui.tab.group": "Group",
+  "ui.group.title": "Walking together",
+  "ui.group.sub": "Everyone says what they want and where they come from. I'll find a place that suits all, or where to meet.",
+  "ui.group.count": "How many of you",
+  "ui.group.you": "You",
+  "ui.group.names": "Aliya,Daniyar,Madina,Timur,Zhanna",
+  "ui.group.wishOf": "What {name} wants",
+  "ui.group.fromOf": "Where {name} comes from",
+  "ui.group.fromCommon": "With you: {name}",
+  "ui.group.fitHint": "You all start together: I'll find a place where nobody is left out.",
+  "ui.group.meetHint": "You start apart: I'll find a meeting point that is about as far for everyone.",
+  "ui.group.start": "Common start: {name}",
+  "ui.group.goMeet": "Where to meet",
+  "ui.group.ctaSub": "For a group of {n}",
 };
 
 const DICT: Record<Lang, Record<string, string>> = { ru, kk, en };

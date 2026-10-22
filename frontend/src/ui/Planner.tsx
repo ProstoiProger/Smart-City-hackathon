@@ -244,16 +244,6 @@ export function Planner({ walk, onStartPicker, onGo }: { walk: Walk; onStartPick
             <span>{t("filters.when")}</span>
             <input type="datetime-local" value={f.when} onChange={(e) => f.setWhen(e.target.value)} />
           </label>
-          <label className="field">
-            <span>{t("filters.group")}</span>
-            <select value={f.groupSize} onChange={(e) => f.setGroupSize(Number(e.target.value))}>
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <option key={n} value={n}>
-                  {t("filters.groupOption", { n })}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="switch">
             <input type="checkbox" checked={walk.chat.miniRoute} onChange={(e) => walk.chat.setMiniRoute(e.target.checked)} />
             <span>{t("ui.severalStops")}</span>

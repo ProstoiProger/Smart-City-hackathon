@@ -7,7 +7,6 @@ import { locale, useT } from "../lib/i18n";
 import { usePrefs } from "../lib/prefs";
 import { canListen, canSpeak, stopSpeaking, useDictation } from "../lib/voice";
 import type { Walk } from "../useWalk";
-import { GroupPanel } from "../components/GroupPanel";
 import { ComfortNote } from "../components/Insights";
 import { Emoji } from "./PlaceCard";
 import { Events, followUps } from "./Results";
@@ -36,7 +35,7 @@ export function Chat({
 }) {
   const t = useT();
   const { lang } = usePrefs();
-  const { messages, ask, members, setMembers } = walk.chat;
+  const { messages, ask } = walk.chat;
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const draft = useRef("");
@@ -169,8 +168,6 @@ export function Chat({
         )}
         <div ref={end} />
       </div>
-
-      <GroupPanel members={members} setMembers={setMembers} busy={walk.busy} onGo={() => ask(text.trim() || t("group.defaultQuery"))} />
 
       <form
         className="composer"

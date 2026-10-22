@@ -252,7 +252,7 @@ export function useWalk() {
   }, []);
 
   /** `fresh`: a new walk from the planner (a new history entry), not a follow-up. */
-  async function ask(text: string, fresh = false) {
+  async function ask(text: string, fresh = false, company?: GroupMember[]) {
     const clean = text.trim();
     if (!clean || busy) return;
     setBusy(true);
@@ -269,7 +269,9 @@ export function useWalk() {
         strict_amenities: strict,
         // Unchecked: the server still builds a route when the request asks for a walk.
         mini_route: miniRoute ? true : null,
-        members: members.length >= 2 ? members : undefined,
+        // The company tab passes its members with the names it filled in.
+        members: (company ?? members).length >= 2 ? (company ?? members) : undefined,
+        group_size: company && company.length >= 2 ? company.length : ctx().group_size,
         ...finishBody(),
         // The walk on screen: the message may edit it ("второе замени", "без кафе").
         // A fresh walk (planner, repeat from history) starts over instead of editing it.

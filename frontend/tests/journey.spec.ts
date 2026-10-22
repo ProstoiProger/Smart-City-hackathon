@@ -199,9 +199,8 @@ test("answers show nearby events and the company budget", async ({ page }) => {
   await expect(answer.locator(".events-card")).toContainText("События во время прогулки");
   await expect(answer.locator(".events-card")).toContainText("24.10, 16:00");
   await expect(answer.locator(".mini-place small").first()).toContainText(/мин на месте/);
-  await tab(page, "Маршрут").click();
-  await page.locator(".more-settings summary").click();
-  await page.getByLabel("Сколько вас").selectOption("5");
+  await tab(page, "Компания").click();
+  await page.getByRole("radio", { name: "5", exact: true }).click();
   await tab(page, "Помощник").click();
   const dinner = await askChat(page, "Поужинать возле Байтерека");
   await expect(dinner).toContainText("Подбор для компании из 5");
@@ -329,4 +328,36 @@ test("walk history: kept in the browser without coordinates, marks visits, repea
   await page.getByRole("button", { name: "Очистить историю" }).click();
   await expect(page.locator(".history-item")).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem("walkHistory.v1"))).toBeNull();
+});
+
+test("company tab: wishes of everyone, and a meeting point when starts differ", async ({ page }) => {
+  await offlineChat(page);
+  await oneWay(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await setWhen(page, "2026-10-22T13:00");
+  // The company is no longer hidden in the chat.
+  await tab(page, "Помощник").click();
+  await expect(page.locator(".group-panel")).toHaveCount(0);
+
+  await tab(page, "Компания").click();
+  await page.getByRole("radio", { name: "3", exact: true }).click();
+  await expect(page.locator(".member-card")).toHaveCount(3);
+  await page.getByLabel("Чего хочет Вы").fill("кофе");
+  await page.getByLabel("Чего хочет Алия").fill("тихо поработать");
+  await page.getByLabel("Чего хочет Данияр").fill("перекусить");
+  const sent = page.waitForRequest((r) => r.url().endsWith("/api/chat") && r.method() === "POST");
+  await page.locator(".cta").click();
+  const body = (await sent).postDataJSON();
+  expect(body.members.map((m: { name: string }) => m.name)).toEqual(["Вы", "Алия", "Данияр"]);
+  expect(body.group_size).toBe(3);
+  await expect(tab(page, "Маршрут")).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".group-fit").first()).toBeVisible({ timeout: 30000 });
+
+  await tab(page, "Компания").click();
+  await page.getByLabel("Откуда идёт Алия").selectOption("mega");
+  await expect(page.locator(".cta")).toContainText("Где встретиться");
+  await page.locator(".cta").click();
+  await expect(page.locator(".option-extra").filter({ hasText: "Алия" }).first()).toBeVisible({ timeout: 30000 });
+  await expect(page.locator(".map-person").filter({ hasText: "Алия" })).toBeVisible();
 });
