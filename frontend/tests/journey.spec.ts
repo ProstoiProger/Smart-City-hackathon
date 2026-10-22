@@ -466,3 +466,40 @@ test("phone: draggable sheet, no zoom-on-focus fields, landscape side panel, ins
   expect((await panel.boundingBox())!.width).toBeLessThan(420);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test("low-vision version: large text, contrast schemes, no images, remembered, and back", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  const html = page.locator("html");
+  await page.getByRole("button", { name: "Версия для слабовидящих" }).click();
+  await expect(html).toHaveAttribute("data-lv", "on");
+  await expect(page.getByRole("region", { name: "Настройки версии для слабовидящих" })).toBeVisible();
+  // Larger text scales the whole screen; the 3D tilt goes (flat map, no 3D switch).
+  const before = await page.locator(".screen-title").evaluate((e) => e.getBoundingClientRect().height);
+  await page.getByRole("radio", { name: "Самый крупный текст" }).click();
+  await expect(html).toHaveAttribute("data-lv-size", "3");
+  expect(await page.locator(".screen-title").evaluate((e) => e.getBoundingClientRect().height)).toBeGreaterThan(before);
+  await expect(page.locator(".map-3d")).toHaveCount(0);
+  // White on black by default; black on white on request.
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  expect(await page.locator(".panel").evaluate((e) => getComputedStyle(e).backgroundColor)).toBe("rgb(0, 0, 0)");
+  await page.getByRole("radio", { name: "Чёрный текст на белом фоне" }).click();
+  await expect(html).toHaveAttribute("data-theme", "light");
+  expect(await page.locator(".panel").evaluate((e) => getComputedStyle(e).backgroundColor)).toBe("rgb(255, 255, 255)");
+  // Images off: emoji and photos hidden, text stays.
+  await page.getByRole("button", { name: "Другие настройки" }).click();
+  await page.getByRole("button", { name: "Без картинок" }).click();
+  await expect(html).toHaveAttribute("data-lv-images", "off");
+  await expect(page.locator(".wish-chip .emo").first()).toBeHidden();
+  await expect(page.locator(".wish-chip").first()).toContainText("Кофе");
+  // Remembered across visits, applied before the first paint.
+  await page.reload();
+  await expect(html).toHaveAttribute("data-lv", "on");
+  await expect(html).toHaveAttribute("data-lv-size", "3");
+  // Back to the usual version and its own theme.
+  await page.getByRole("button", { name: "Другие настройки" }).click();
+  await page.getByRole("button", { name: "Обычная версия" }).click();
+  await expect(html).not.toHaveAttribute("data-lv", "on");
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator(".map-3d")).toHaveCount(1);
+});

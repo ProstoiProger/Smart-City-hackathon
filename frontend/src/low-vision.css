@@ -1,0 +1,363 @@
+/* Low-vision version («Версия для слабовидящих»): the switch in the panel header, its settings
+   bar, two high-contrast schemes, larger text, wide spacing and an images-off mode.
+   Attributes on <html>: data-lv, data-lv-size (1–3), data-lv-images, data-lv-spacing. */
+
+.lv-btn {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid !important;
+  place-items: center;
+  border-radius: 50% !important;
+  background: var(--surface-1) !important;
+  color: var(--text-1);
+}
+.lv-btn .ic {
+  width: 21px;
+  height: 21px;
+}
+.lv-btn.on {
+  background: var(--accent) !important;
+  color: var(--text-on-accent);
+}
+.lv-btn + .lang-seg {
+  margin-left: 6px;
+}
+.lv-bar {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 12px;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--surface-1);
+  border: 2px solid var(--border-strong);
+}
+.lv-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lv-row.wrap {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.lv-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+}
+.lv-group {
+  display: flex;
+  gap: 6px;
+}
+.lv-size,
+.lv-swatch,
+.lv-toggle {
+  min-height: 44px;
+  min-width: 48px;
+  padding: 6px 12px !important;
+  border-radius: 12px !important;
+  border: 2px solid var(--border-strong) !important;
+  background: var(--surface-2) !important;
+  color: var(--text-1);
+  font-weight: 800;
+}
+.lv-size {
+  min-width: 44px !important;
+  padding: 4px 8px !important;
+}
+.lv-size.s1 {
+  font-size: 14px;
+}
+.lv-size.s2 {
+  font-size: 17px;
+}
+.lv-size.s3 {
+  font-size: 20px;
+}
+.lv-swatch {
+  min-width: 44px !important;
+  padding: 4px 8px !important;
+}
+.lv-toggle.icon {
+  min-width: 44px;
+  padding: 4px !important;
+  justify-content: center;
+}
+.lv-toggle.icon .ic {
+  width: 22px;
+  height: 22px;
+}
+.lv-size[aria-checked="true"],
+.lv-toggle[aria-pressed="true"] {
+  background: var(--accent) !important;
+  color: var(--text-on-accent);
+  border-color: var(--accent) !important;
+}
+.lv-swatch {
+  font-size: 18px;
+}
+.lv-swatch.dark {
+  background: #000 !important;
+  color: #fff;
+  border-color: #fff !important;
+}
+.lv-swatch.light {
+  background: #fff !important;
+  color: #000;
+  border-color: #000 !important;
+}
+.lv-swatch[aria-checked="true"] {
+  outline: 4px solid var(--accent);
+  outline-offset: 2px;
+}
+.lv-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+}
+.lv-toggle.exit {
+  margin-left: auto;
+}
+
+/* High-contrast schemes: pure black / white, one strong accent (yellow on black, blue on white). */
+[data-lv="on"][data-theme="dark"] {
+  --bg: #000;
+  --surface-0: #000;
+  --surface-1: #000;
+  --surface-2: #000;
+  --surface-3: #141414;
+  --surface-hover: #1e1e1e;
+  --surface-selected: #262626;
+  --glass: #000;
+  --text-1: #fff;
+  --text-2: #fff;
+  --text-3: #f2f2f2;
+  --muted: #fff;
+  --border: #fff;
+  --border-strong: #fff;
+  --accent: #ffe500;
+  --accent-hover: #fff27a;
+  --accent-2: #ffe500;
+  --accent-soft: rgba(255, 229, 0, 0.2);
+  --accent-ink: #ffe500;
+  --text-on-accent: #000;
+  --link: #ffe500;
+  --focus: #ffe500;
+  --success: #7dff7d;
+  --ok-fg: #7dff7d;
+  --ok-bg: #000;
+  --warning: #ffe500;
+  --warn-fg: #ffe500;
+  --warn-bg: #000;
+  --warn-border: #ffe500;
+  --danger: #ff8f8f;
+  --error-fg: #ff8f8f;
+  --error-bg: #000;
+  --error-border: #ff8f8f;
+  --ring-there: #ffe500;
+  --ring-visit: #fff;
+  --ring-back: #7cd4ff;
+  --ring-reserve: #777;
+  --ring-track: #333;
+  --map-bg: #000;
+  --glow: 0 0 0 3px #ffe500;
+}
+[data-lv="on"][data-theme="light"] {
+  --bg: #fff;
+  --surface-0: #fff;
+  --surface-1: #fff;
+  --surface-2: #fff;
+  --surface-3: #efefef;
+  --surface-hover: #e6e6e6;
+  --surface-selected: #dde6ff;
+  --glass: #fff;
+  --text-1: #000;
+  --text-2: #000;
+  --text-3: #1a1a1a;
+  --muted: #000;
+  --border: #000;
+  --border-strong: #000;
+  --accent: #0033cc;
+  --accent-hover: #0029a3;
+  --accent-2: #0033cc;
+  --accent-soft: rgba(0, 51, 204, 0.12);
+  --accent-ink: #0033cc;
+  --text-on-accent: #fff;
+  --link: #0033cc;
+  --focus: #0033cc;
+  --success: #006b1f;
+  --ok-fg: #006b1f;
+  --ok-bg: #fff;
+  --warning: #7a4a00;
+  --warn-fg: #7a4a00;
+  --warn-bg: #fff;
+  --warn-border: #7a4a00;
+  --danger: #a30000;
+  --error-fg: #a30000;
+  --error-bg: #fff;
+  --error-border: #a30000;
+  --ring-there: #0033cc;
+  --ring-visit: #000;
+  --ring-back: #2f7bff;
+  --ring-reserve: #aaa;
+  --ring-track: #e6e6e6;
+  --map-bg: #fff;
+  --glow: 0 0 0 3px #0033cc;
+}
+
+/* Calm and solid: no motion, gradients, blur or shadows; every card has a clear border. */
+[data-lv="on"] .panel {
+  background: var(--bg) !important;
+  backdrop-filter: none;
+  border: 3px solid var(--border-strong);
+  box-shadow: none;
+  font-weight: 500;
+}
+[data-lv="on"] .panel *,
+[data-lv="on"] .panel *::before,
+[data-lv="on"] .panel *::after,
+[data-lv="on"] .map-wrap *,
+[data-lv="on"] .notification {
+  animation: none !important;
+  transition: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+[data-lv="on"] .panel * {
+  box-shadow: none !important;
+  background-image: none !important;
+}
+[data-lv="on"] :is(.cta, .mic-btn, .send-btn, .brand-mark, .bot-avatar, .option-num, .tl-num, .next-badge, .map-pin-num) {
+  background: var(--accent) !important;
+  color: var(--text-on-accent) !important;
+}
+[data-lv="on"] .cta {
+  border: 3px solid var(--border-strong) !important;
+}
+[data-lv="on"] .brand-mark svg {
+  stroke: var(--text-on-accent);
+}
+[data-lv="on"] .brand-mark svg circle {
+  fill: var(--text-on-accent);
+}
+[data-lv="on"] .brand-name b {
+  color: var(--accent-ink);
+}
+[data-lv="on"] .panel :is(.option-card, .place-row, .tl-stop, .history-item, .saved-item, .member-card, .tile, .route-card, .budget-card, .why-card, .advice-card, .events-card, .trip-panel, .origin-card, .segmented, .ask-field, .settings-list, .choice-list, .more-settings, .landmark, .wish-chip, .back-btn, .round-btn, .ghost-btn, .soft-btn, .trip-btn, .bubble, .mini-place, .route-chip, .composer, .note, .empty-note, .history-place, .lang-seg, .chip-stat, .walk-pill, .pill-btn, .backup, .about-card, .event-row, .tour-guide),
+[data-lv="on"] .panel .quick-replies button,
+[data-lv="on"] .panel .pd-sections details,
+[data-lv="on"] .panel .history-stats span,
+[data-lv="on"] .panel .filter-pills button,
+[data-lv="on"] .panel .suggestions button {
+  border: 2px solid var(--border-strong) !important;
+}
+[data-lv="on"] .panel .segmented button[aria-checked="true"],
+[data-lv="on"] .panel .filter-pills button[aria-checked="true"],
+[data-lv="on"] .panel .wish-chip[aria-pressed="true"],
+[data-lv="on"] .panel .lang-seg button[aria-pressed="true"],
+[data-lv="on"] .tabbar button[aria-current="page"] {
+  background: var(--accent) !important;
+  color: var(--text-on-accent) !important;
+}
+[data-lv="on"] .panel .segmented button[aria-checked="true"] b,
+[data-lv="on"] .panel .segmented button[aria-checked="true"] .ic,
+[data-lv="on"] .tabbar button[aria-current="page"] .ic {
+  color: inherit !important;
+}
+[data-lv="on"] .tabbar {
+  border-top: 3px solid var(--border-strong);
+}
+[data-lv="on"] .tabbar button {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-1);
+}
+[data-lv="on"] .tabbar button .ic {
+  width: 24px;
+  height: 24px;
+}
+[data-lv="on"] :focus-visible {
+  outline: 4px solid var(--focus) !important;
+  outline-offset: 3px !important;
+}
+[data-lv="on"] .panel a:not(.brand) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Larger text: the content of the panel is scaled as a whole, so nothing breaks apart. */
+[data-lv-size="1"] .panel-body > .screen-anim {
+  zoom: 1.25;
+}
+[data-lv-size="2"] .panel-body > .screen-anim {
+  zoom: 1.5;
+}
+[data-lv-size="3"] .panel-body > .screen-anim {
+  zoom: 1.75;
+}
+@media (min-width: 860px) {
+  [data-lv="on"] .panel {
+    width: 520px;
+  }
+  [data-lv-size="3"] .panel {
+    width: 600px;
+  }
+  [data-lv="on"] .notification {
+    left: calc(50% + 280px);
+    width: min(520px, calc(100vw - 640px));
+  }
+}
+/* Whole texts: no clamping, no ellipsis. */
+[data-lv="on"] .panel :is(.clamped, .option-why, .history-wish) {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  overflow: visible !important;
+}
+[data-lv="on"] .panel :is(.place-row-body strong, .saved-body strong, .origin-text strong) {
+  white-space: normal;
+}
+[data-lv="on"] .panel :is(small, .option-kind, .option-meta, .screen-sub, .privacy-note, .hint) {
+  font-size: 14px;
+}
+/* Wide spacing between letters, words and lines. */
+[data-lv-spacing="wide"] .panel {
+  letter-spacing: 0.05em;
+  word-spacing: 0.12em;
+  line-height: 1.8;
+}
+[data-lv-spacing="wide"] .panel :is(p, span, strong, li, small, button) {
+  line-height: 1.7;
+}
+/* Images off: photos and emoji go, the text stays. */
+[data-lv-images="off"] .panel :is(.emo, .pd-photo, .emoji-tile, .wish-emoji, .tile-emoji, .origin-icon, .member-avatar, .bot-avatar, .choice-icon, .landmark-emoji, .empty-icon),
+[data-lv-images="off"] .map-pin .emo {
+  display: none !important;
+}
+/* The map: large pins and labels, larger controls. */
+[data-lv="on"] .map-pin-wrap {
+  zoom: 1.35;
+}
+[data-lv="on"] .map-pin-face {
+  border-width: 3px;
+  background: var(--bg);
+}
+[data-lv="on"] .map-flag-chip {
+  font-size: 15px;
+  background: var(--bg);
+  border: 2px solid var(--border-strong);
+}
+[data-lv="on"] .map-btn {
+  background: var(--bg);
+  border: 2px solid var(--border-strong);
+}
+[data-lv="on"] .notification {
+  font-size: 16px;
+  background: var(--bg);
+  border: 3px solid var(--border-strong);
+}

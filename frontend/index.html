@@ -24,6 +24,16 @@
         try {
           var t = localStorage.getItem("uiTheme");
           if (t !== "light") t = "dark";
+          // Low-vision version: its scheme and sizes apply before the first paint too.
+          var lv = JSON.parse(localStorage.getItem("lowVision") || "null");
+          if (lv && lv.on) {
+            t = lv.scheme === "light" ? "light" : "dark";
+            var d = document.documentElement.dataset;
+            d.lv = "on";
+            d.lvSize = String([1, 2, 3].indexOf(lv.size) >= 0 ? lv.size : 2);
+            d.lvImages = lv.images === false ? "off" : "on";
+            d.lvSpacing = lv.spacing ? "wide" : "normal";
+          }
           document.documentElement.setAttribute("data-theme", t);
           var l = localStorage.getItem("lang");
           document.documentElement.setAttribute("lang", l === "kk" || l === "en" ? l : "ru");

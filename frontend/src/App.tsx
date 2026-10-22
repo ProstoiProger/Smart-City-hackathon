@@ -19,6 +19,7 @@ import { Planner } from "./ui/Planner";
 import { Results } from "./ui/Results";
 import { StartPicker } from "./ui/StartPicker";
 import { useSheet } from "./ui/useSheet";
+import { LowVisionBar } from "./ui/LowVisionBar";
 
 // The gap map pulls in Leaflet: loaded only when it is opened.
 const CityPage = lazy(() => import("./components/CityPage").then((m) => ({ default: m.CityPage })));
@@ -62,7 +63,7 @@ function pinOf(p: Poi, number?: number): MapPin {
 
 export default function App() {
   const t = useT();
-  const { theme, lang, setLang } = usePrefs();
+  const { theme, lang, setLang, lowVision, setLowVision } = usePrefs();
   const walk = useWalk();
   const f = walk.filters;
   const [tab, setTab] = useState<Tab>("walk");
@@ -98,6 +99,13 @@ export default function App() {
     setAwaiting(true);
     setRepeat(e);
   };
+
+  // The low-vision version on a phone opens the sheet in full: text first, the map a drag away.
+  useEffect(() => {
+    if (lowVision.on && sheet.sheet) sheet.setSnap("full");
+    // Only when the version is switched on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lowVision.on]);
 
   // The answer arrived (or failed): the loading steps give way to the result.
   useEffect(() => {
@@ -304,6 +312,7 @@ export default function App() {
       <ErrorBoundary>
         <MapView
           theme={theme}
+          flat={lowVision.on}
           pins={scene.pins}
           lines={scene.lines}
           start={f.origin ? { point: f.origin, name: f.originName } : null}
@@ -380,6 +389,15 @@ export default function App() {
             </span>
             <span className="brand-city">{t("top.city")}</span>
           </a>
+          <button
+            className={"lv-btn" + (lowVision.on ? " on" : "")}
+            aria-pressed={lowVision.on}
+            aria-label={t("lv.title")}
+            title={t("lv.title")}
+            onClick={() => setLowVision({ on: !lowVision.on })}
+          >
+            <Icon name="eye" />
+          </button>
           <div className="lang-seg" role="group" aria-label={t("top.lang")}>
             <button aria-pressed={lang === "ru"} onClick={() => setLang("ru")} lang="ru">
               РУС
@@ -394,6 +412,7 @@ export default function App() {
         </header>
         <div className="panel-body" ref={body}>
           <ErrorBoundary>
+            {lowVision.on && <LowVisionBar />}
             <div className="screen-anim" key={screenKey}>
               {screen}
             </div>

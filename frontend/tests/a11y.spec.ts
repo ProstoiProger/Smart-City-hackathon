@@ -48,3 +48,24 @@ for (const theme of THEMES) {
     }
   }
 }
+
+// The low-vision version in both schemes, desktop and phone: contrast and labels must hold too.
+for (const scheme of ["dark", "light"] as const) {
+  for (const [name, size] of Object.entries(VIEWPORTS)) {
+    test(`axe: low-vision ${scheme} ${name}`, async ({ page }) => {
+      await page.addInitScript((s) => {
+        localStorage.setItem("lowVision", JSON.stringify({ on: true, size: 2, scheme: s, images: true, spacing: false }));
+      }, scheme);
+      await page.setViewportSize(size);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("data-lv", "on");
+      await expect(page.locator(".cta")).toBeVisible();
+      await audit(page);
+      await page.locator(".tabbar button").nth(1).click();
+      await expect(page.locator(".place-row").first()).toBeVisible();
+      await page.locator(".place-row").first().click();
+      await expect(page.locator(".place-detail")).toBeVisible();
+      await audit(page);
+    });
+  }
+}

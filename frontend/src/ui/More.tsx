@@ -32,7 +32,7 @@ export function More({
   setSpoken: (v: boolean) => void;
 }) {
   const t = useT();
-  const { theme, toggleTheme, lang } = usePrefs();
+  const { theme, toggleTheme, lang, lowVision, setLowVision } = usePrefs();
   const back = () => setView(null);
   if (view === "history") return <History walk={walk} onBack={back} onRepeat={onRepeat} />;
   if (view === "saved") return <MyPlaces walk={walk} onBack={back} onRepeat={onRepeat} />;
@@ -73,6 +73,11 @@ export function More({
 
       <h2 className="section-title">{t("ui.settings")}</h2>
       <div className="settings-list">
+        <button className="setting" onClick={() => setLowVision({ on: !lowVision.on })} aria-pressed={lowVision.on}>
+          <Emo e="👀" />
+          <span>{t("lv.title")}</span>
+          <i className={"toggle" + (lowVision.on ? " on" : "")} aria-hidden="true" />
+        </button>
         <button className="setting" onClick={toggleTheme} aria-pressed={theme === "dark"}>
           <Emo e={theme === "dark" ? "🌛" : "☀️"} />
           <span>{t("ui.darkTheme")}</span>

@@ -175,6 +175,7 @@ export function MapView({
   onPick,
   onTileError,
   padding,
+  flat = false,
   labels,
 }: {
   theme: "light" | "dark";
@@ -198,19 +199,23 @@ export function MapView({
   onTileError: () => void;
   /** Screen space covered by the floating panel, so fitted content stays visible. */
   padding: () => Padding;
+  /** Low-vision version: a flat map with large pins. */
+  flat?: boolean;
   labels: { aria: string; start: string; finish: string; zoomIn: string; zoomOut: string; to3d: string; to2d: string; recenter: string };
 }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
   // Set on "style.load", cleared when a theme switch swaps the base style.
   const styleReady = useRef(false);
-  const [is3d, setIs3d] = useState(() => {
+  const [want3d, setIs3d] = useState(() => {
     try {
       return localStorage.getItem("map3d") !== "0";
     } catch {
       return true;
     }
   });
+  // The low-vision version keeps the map flat (tilted labels are hard to read); the choice stays saved.
+  const is3d = want3d && !flat;
   const pinMarkers = useRef(new Map<string, { marker: Marker; el: HTMLElement }>());
   const flags = useRef<{ start?: Marker; finish?: Marker; people: Marker[] }>({ people: [] });
   // Latest drawn data: re-applied after a theme switch reloads the base style.
@@ -337,7 +342,7 @@ export function MapView({
 
   useEffect(() => {
     try {
-      localStorage.setItem("map3d", is3d ? "1" : "0");
+      localStorage.setItem("map3d", want3d ? "1" : "0");
     } catch {
       // Kept for this page only.
     }
@@ -481,7 +486,7 @@ export function MapView({
         <button type="button" className="map-btn map-zoom" aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => zoom(-1)}>
           <Icon name="minus" />
         </button>
-        <button
+        {!flat && <button
           type="button"
           className={"map-btn map-3d" + (is3d ? " on" : "")}
           aria-pressed={is3d}
@@ -490,7 +495,7 @@ export function MapView({
           onClick={() => setIs3d(!is3d)}
         >
           {is3d ? "3D" : "2D"}
-        </button>
+        </button>}
         <button
           type="button"
           className="map-btn"

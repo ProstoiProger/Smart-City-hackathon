@@ -4,6 +4,7 @@ import { PrefsProvider } from "./lib/prefs";
 import "./tokens.css";
 import "./legacy.css";
 import "./ui.css";
+import "./low-vision.css";
 
 createRoot(document.getElementById("root")!).render(
   <PrefsProvider>
