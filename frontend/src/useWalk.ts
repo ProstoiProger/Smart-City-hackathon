@@ -85,7 +85,13 @@ export function useWalk() {
   const [provider, setProvider] = useState<Provider>("offline");
   const [miniRoute, setMiniRoute] = useState(false);
   // "" — anywhere, "loop" — back to the start, or a landmark key.
-  const [finishKey, setFinishKey] = useState("");
+  const [finishKey, setFinishKey] = useState(() => {
+    try {
+      return localStorage.getItem("walkMode") === "oneway" ? "" : "loop";
+    } catch {
+      return "loop";
+    }
+  });
   const [trip, setTrip] = useState<Trip | null>(null);
   // Bumped when the user changes the start themself: the map flies there.
   const [originFocus, setOriginFocus] = useState(0);
@@ -98,6 +104,10 @@ export function useWalk() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  // The last answer of the assistant: the walk screen shows it as options or a route.
+  const [answer, setAnswer] = useState<ChatResponse | null>(null);
+  // Pins on the map are numbered when they are the assistant's answer, plain for a search.
+  const [itemsSource, setItemsSource] = useState<"search" | "answer">("search");
   const [plan, setPlan] = useState<Plan>();
   const [panel, setPanel] = useState<Panel>("map");
   const [afisha, setAfisha] = useState<EventRecord[] | null>(null);
@@ -135,9 +145,7 @@ export function useWalk() {
     searchAbort.current = controller;
     setLoading(true);
     setError("");
-    setPlan(undefined);
-    setTrip(null);
-    setMeeting(null);
+    // The walk on the "Прогулка" tab stays: a search only fills the "Рядом" list.
     setSelected(undefined);
     try {
       const data = await request<{ items: Poi[]; warnings: string[] }>(
@@ -147,6 +155,7 @@ export function useWalk() {
       );
       if (seq !== serial.current) return;
       setItems(data.items);
+      setItemsSource("search");
       setNotice(data.warnings.join(" "));
     } catch (e) {
       if (seq === serial.current) setError(message(e, "err.search"));
@@ -194,7 +203,9 @@ export function useWalk() {
         dialog: routeContext() ? undefined : (dialog ?? undefined),
       });
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: data.answer, data }]);
+      setAnswer(data);
       setItems(data.items);
+      setItemsSource("answer");
       setSelected(undefined);
       // A mini-route (or the way to a finish) goes straight onto the map as the current itinerary.
       const route = data.mini_route;
@@ -225,6 +236,7 @@ export function useWalk() {
       }
       setMinutes(data.minutes);
     } catch (e) {
+      setAnswer(null);
       setMessages((m) => [...m, { id: Date.now() + 1, role: "assistant", text: message(e, "chat.unavailable") }]);
     } finally {
       setBusy(false);
@@ -405,10 +417,20 @@ export function useWalk() {
     setPanel("map");
   }
 
+  /** Opens a place over the current screen; the walk on the map stays. */
   function selectPlace(p: Poi | undefined, showMap = true) {
     setSelected(p);
-    setPlan(undefined);
     if (p && showMap) setPanel("map");
+  }
+
+  /** "Туда и обратно" ends the walk at the start; "Только туда" leaves the end open. */
+  function setWalkMode(mode: "loop" | "oneway") {
+    setFinishKey(mode === "loop" ? "loop" : "");
+    try {
+      localStorage.setItem("walkMode", mode);
+    } catch {
+      // Kept for this page only.
+    }
   }
 
   function setLandmark(key: string) {
@@ -458,6 +480,12 @@ export function useWalk() {
     }
   }
 
+  /** A short hint at the bottom of the screen ("Скопировано"). */
+  function notify(text: string) {
+    setError("");
+    setNotice(text);
+  }
+
   function dismiss() {
     setError("");
     setNotice("");
@@ -476,15 +504,16 @@ export function useWalk() {
         : originLabel;
 
   return {
-    meta, weather, items, selected, plan, panel, setPanel, loading, busy, error, notice, dismiss,
+    meta, weather, items, selected, plan, panel, setPanel, loading, busy, error, notice, dismiss, notify,
     filters: {
       query, setQuery, category, setCategory, minutes, setMinutes, when, setWhen,
       origin, originLabel, originName, landmarkKey, setLandmark, picking, setPicking, locate,
       openOnly, setOpenOnly, noSteps, setNoSteps, snapRadius, setSnapRadius, strict, setStrict, groupSize, setGroupSize,
-      finishKey, setFinishKey,
+      finishKey, setFinishKey, walkMode: (finishKey === "loop" ? "loop" : "oneway") as "loop" | "oneway", setWalkMode,
       airportTransfer, setAirportTransfer, airportReserve, setAirportReserve,
     },
     chat: { messages, miniRoute, setMiniRoute, ask, members, setMembers },
+    answer, itemsSource,
     afishaState: { afisha, setAfisha, openAfisha },
     tour, setTour,
     trip, visitStop, replan, originFocus, meeting,

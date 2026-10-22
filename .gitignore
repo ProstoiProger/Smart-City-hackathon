@@ -18,6 +18,16 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
 frontend/stats.html
+frontend/.vite/
+*.tsbuildinfo
+# Vite copies public/emoji into dist on every build; the backend serves public/emoji
+# when dist has no copy, so the 4.7 MB of Noto emoji are committed once.
+frontend/dist/emoji/
+
+# Test coverage
+.coverage
+htmlcov/
+coverage/
 
 # Third-party review texts (2GIS): kept locally, not published
 collector/output/

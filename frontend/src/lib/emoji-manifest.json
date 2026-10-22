@@ -1,0 +1,378 @@
+{
+"⏳": {
+"file": "23f3",
+"animated": true
+},
+"☀️": {
+"file": "2600",
+"animated": false
+},
+"☁️": {
+"file": "2601",
+"animated": true
+},
+"☕": {
+"file": "2615",
+"animated": true
+},
+"⚽": {
+"file": "26bd",
+"animated": true
+},
+"⛅": {
+"file": "26c5",
+"animated": true
+},
+"⛈️": {
+"file": "26c8",
+"animated": false
+},
+"⛳": {
+"file": "26f3",
+"animated": true
+},
+"✅": {
+"file": "2705",
+"animated": true
+},
+"✈️": {
+"file": "2708",
+"animated": true
+},
+"✨": {
+"file": "2728",
+"animated": true
+},
+"❄️": {
+"file": "2744",
+"animated": true
+},
+"⭐": {
+"file": "2b50",
+"animated": true
+},
+"🌇": {
+"file": "1f307",
+"animated": true
+},
+"🌊": {
+"file": "1f30a",
+"animated": true
+},
+"🌛": {
+"file": "1f31b",
+"animated": true
+},
+"🌤️": {
+"file": "1f324",
+"animated": false
+},
+"🌧️": {
+"file": "1f327",
+"animated": true
+},
+"🌫️": {
+"file": "1f32b",
+"animated": false
+},
+"🌲": {
+"file": "1f332",
+"animated": true
+},
+"🌷": {
+"file": "1f337",
+"animated": true
+},
+"🌿": {
+"file": "1f33f",
+"animated": true
+},
+"🍔": {
+"file": "1f354",
+"animated": true
+},
+"🍕": {
+"file": "1f355",
+"animated": true
+},
+"🍜": {
+"file": "1f35c",
+"animated": true
+},
+"🍣": {
+"file": "1f363",
+"animated": false
+},
+"🍦": {
+"file": "1f366",
+"animated": true
+},
+"🍩": {
+"file": "1f369",
+"animated": true
+},
+"🍹": {
+"file": "1f379",
+"animated": true
+},
+"🍻": {
+"file": "1f37b",
+"animated": true
+},
+"🍽️": {
+"file": "1f37d",
+"animated": true
+},
+"🎈": {
+"file": "1f388",
+"animated": true
+},
+"🎟️": {
+"file": "1f39f",
+"animated": true
+},
+"🎠": {
+"file": "1f3a0",
+"animated": true
+},
+"🎡": {
+"file": "1f3a1",
+"animated": true
+},
+"🎢": {
+"file": "1f3a2",
+"animated": true
+},
+"🎨": {
+"file": "1f3a8",
+"animated": false
+},
+"🎬": {
+"file": "1f3ac",
+"animated": true
+},
+"🎭": {
+"file": "1f3ad",
+"animated": true
+},
+"🎯": {
+"file": "1f3af",
+"animated": true
+},
+"🎱": {
+"file": "1f3b1",
+"animated": true
+},
+"🎳": {
+"file": "1f3b3",
+"animated": true
+},
+"🎶": {
+"file": "1f3b6",
+"animated": true
+},
+"🏀": {
+"file": "1f3c0",
+"animated": true
+},
+"🏁": {
+"file": "1f3c1",
+"animated": true
+},
+"🏃": {
+"file": "1f3c3",
+"animated": false
+},
+"🏆": {
+"file": "1f3c6",
+"animated": true
+},
+"🏕️": {
+"file": "1f3d5",
+"animated": true
+},
+"🏛️": {
+"file": "1f3db",
+"animated": false
+},
+"🏠": {
+"file": "1f3e0",
+"animated": true
+},
+"🏡": {
+"file": "1f3e1",
+"animated": false
+},
+"🏢": {
+"file": "1f3e2",
+"animated": false
+},
+"🏨": {
+"file": "1f3e8",
+"animated": false
+},
+"👀": {
+"file": "1f440",
+"animated": true
+},
+"👣": {
+"file": "1f463",
+"animated": true
+},
+"💡": {
+"file": "1f4a1",
+"animated": true
+},
+"💨": {
+"file": "1f4a8",
+"animated": false
+},
+"💪": {
+"file": "1f4aa",
+"animated": true
+},
+"💸": {
+"file": "1f4b8",
+"animated": true
+},
+"💻": {
+"file": "1f4bb",
+"animated": true
+},
+"📌": {
+"file": "1f4cc",
+"animated": false
+},
+"📍": {
+"file": "1f4cd",
+"animated": false
+},
+"📚": {
+"file": "1f4da",
+"animated": true
+},
+"📣": {
+"file": "1f4e3",
+"animated": true
+},
+"📦": {
+"file": "1f4e6",
+"animated": true
+},
+"📸": {
+"file": "1f4f8",
+"animated": true
+},
+"🔒": {
+"file": "1f512",
+"animated": true
+},
+"🔮": {
+"file": "1f52e",
+"animated": true
+},
+"🕌": {
+"file": "1f54c",
+"animated": false
+},
+"🕯️": {
+"file": "1f56f",
+"animated": false
+},
+"🕹️": {
+"file": "1f579",
+"animated": false
+},
+"🖼️": {
+"file": "1f5bc",
+"animated": false
+},
+"🗺️": {
+"file": "1f5fa",
+"animated": false
+},
+"🗼": {
+"file": "1f5fc",
+"animated": false
+},
+"🗿": {
+"file": "1f5ff",
+"animated": true
+},
+"😌": {
+"file": "1f60c",
+"animated": true
+},
+"😮‍💨": {
+"file": "1f62e_200d_1f4a8",
+"animated": true
+},
+"🚀": {
+"file": "1f680",
+"animated": true
+},
+"🚧": {
+"file": "1f6a7",
+"animated": true
+},
+"🚻": {
+"file": "1f6bb",
+"animated": false
+},
+"🛍️": {
+"file": "1f6cd",
+"animated": false
+},
+"🛏️": {
+"file": "1f6cf",
+"animated": false
+},
+"🛟": {
+"file": "1f6df",
+"animated": true
+},
+"🥐": {
+"file": "1f950",
+"animated": false
+},
+"🥡": {
+"file": "1f961",
+"animated": false
+},
+"🥵": {
+"file": "1f975",
+"animated": true
+},
+"🥶": {
+"file": "1f976",
+"animated": true
+},
+"🧑": {
+"file": "1f9d1",
+"animated": false
+},
+"🧺": {
+"file": "1f9fa",
+"animated": false
+},
+"🩰": {
+"file": "1fa70",
+"animated": true
+},
+"🪅": {
+"file": "1fa85",
+"animated": true
+},
+"🪩": {
+"file": "1faa9",
+"animated": true
+},
+"🫖": {
+"file": "1fad6",
+"animated": true
+},
+"🫧": {
+"file": "1fae7",
+"animated": true
+}
+}

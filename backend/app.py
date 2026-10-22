@@ -1413,6 +1413,20 @@ if dist.exists():
 
     app.mount("/assets", HashedAssets(directory=dist / "assets"), name="assets")
 
+    class EmojiFiles(StaticFiles):
+        """Noto emoji images (named by code point, no hash): cached for a week."""
+
+        async def get_response(self, path, scope):
+            response = await super().get_response(path, scope)
+            if response.status_code == 200:
+                response.headers["Cache-Control"] = "public, max-age=604800"
+            return response
+
+    # A fresh build has its own copy; the committed dist does not (see .gitignore).
+    emoji_dir = next((d for d in (dist / "emoji", ROOT / "frontend" / "public" / "emoji") if d.exists()), None)
+    if emoji_dir:
+        app.mount("/emoji", EmojiFiles(directory=emoji_dir), name="emoji")
+
     @app.get("/")
     def index():
         # Always revalidate the page: after a rebuild it must point at the new hashed bundle.

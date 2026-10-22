@@ -30,6 +30,8 @@ export interface Poi {
   address?: string;
   category: string;
   category_label: string;
+  /** Stable kind code ("coffee_shop", "museum"): picks the place's emoji. */
+  subcategory?: string;
   short_description?: string;
   website?: string;
   phone?: string;

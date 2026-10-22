@@ -70,7 +70,7 @@ ELEVENLABS_VOICE_ID_KK=voice_id_для_казахского
         ↓ загружаются в память при старте
 Backend · FastAPI               backend/
         ↓ /api/...              ↘ Gemini API
-Frontend · React + Leaflet      frontend/
+Frontend · React + MapLibre 3D  frontend/
 ```
 
 Базы данных нет: все данные лежат файлами в `data/` и держатся в памяти backend.
@@ -126,7 +126,7 @@ Frontend · React + Leaflet      frontend/
 | Папка / файл | Что внутри |
 |---|---|
 | `backend/` | FastAPI: разбор запроса, поиск, маршруты, часы работы, Gemini, погода, группы, прогулки с гидом |
-| `frontend/` | React + TypeScript + Leaflet; `frontend/dist/` — готовая сборка |
+| `frontend/` | React + TypeScript + MapLibre GL (3D-карта OpenFreeMap); `frontend/dist/` — готовая сборка |
 | `data/` | Места, пешеходный граф, поисковый индекс, признаки из отзывов, афиша, маршруты прогулок |
 | `collector/` | Сбор данных из источников |
 | `scripts/` | Подготовка данных для приложения, извлечение признаков из отзывов |

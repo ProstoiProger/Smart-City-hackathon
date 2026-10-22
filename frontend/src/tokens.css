@@ -22,90 +22,130 @@
   unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
 }
 
-:root {
-  color-scheme: light;
+/* Palette: deck-master "graphite-cyan" — dark grey with a cyan accent.
+   bg #14161B · surface #1F232B · primary #00B8D9 · accent #7DF9FF · text #E8EAED · muted #9AA3B2
+   success #4ADE80 · warning #FBBF24 · danger #F87171 · secondary #8B98B0 */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
   --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-
-  /* Type scale: nothing below 11px; labels and body stay readable for every visitor. */
   --fs-micro: 11px;
   --fs-caption: 12px;
   --fs-body-sm: 13px;
   --fs-body: 14px;
   --fs-h3: 15px;
   --fs-h2: 19px;
-  --fs-h1: 30px;
+  --fs-h1: 26px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-pill: 999px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 14px;
-
-  /* Light: map-app look (cf. 2GIS): grey canvas, white cards, green actions, blue links. */
-  --bg: #eef0f2;
-  --surface-1: #ffffff;
-  --surface-2: #f5f6f7;
-  --surface-hover: #f0f2f4;
-  --surface-selected: #e8f5e9;
-  --text-1: #141414;
-  --text-2: #5c6166;
-  --text-on-accent: #ffffff;
-  --border: #e3e6e9;
-  --border-strong: #cdd2d6;
-  --accent: #11821f;
-  --accent-hover: #0e6f1a;
-  --link: #0a64c2;
-  --highlight: #b45f00;
-  --highlight-bg: rgba(245, 163, 0, 0.1);
-  --focus: #2b7de9;
-  --warn-bg: #fff9e7;
-  --warn-fg: #6f4919;
-  --warn-border: #dac994;
-  --error-bg: #fff0e8;
-  --error-fg: #813d22;
-  --error-border: #d9b39d;
-  --ok-bg: #e2f1e7;
-  --ok-fg: #1d6a3c;
-  --map-bg: #e8ecee;
-  --cluster-ring: #11821f40;
-  --cluster-core: #ffffff;
-  --cluster-text: #11821f;
-  --route-1: #0a64c2;
-  --route-2: #11821f;
-  --shadow-1: 0 1px 4px rgba(0, 0, 0, 0.12);
-  --shadow-2: 0 4px 18px rgba(0, 0, 0, 0.16);
+  --bg: #14161b;
+  --surface-0: #101216;
+  --surface-1: #1f232b;
+  --surface-2: #181b21;
+  --surface-3: #272c35;
+  --surface-hover: #2b313b;
+  --surface-selected: #0f3a44;
+  --glass: rgba(24, 27, 33, 0.86);
+  --text-1: #e8eaed;
+  --text-2: #9aa3b2;
+  --text-3: #8b95a6;
+  --text-on-accent: #071318;
+  --border: rgba(232, 234, 237, 0.08);
+  --border-strong: rgba(232, 234, 237, 0.16);
+  --accent: #00b8d9;
+  --accent-hover: #1bcbea;
+  --accent-2: #7df9ff;
+  --accent-soft: rgba(0, 184, 217, 0.14);
+  --accent-ink: #7df9ff;
+  --secondary: #8b98b0;
+  --link: #7df9ff;
+  --highlight: #fbbf24;
+  --highlight-bg: rgba(251, 191, 36, 0.1);
+  --focus: #7df9ff;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --warn-bg: rgba(251, 191, 36, 0.1);
+  --warn-fg: #fcd78a;
+  --warn-border: rgba(251, 191, 36, 0.28);
+  --error-bg: rgba(248, 113, 113, 0.12);
+  --error-fg: #fca5a5;
+  --error-border: rgba(248, 113, 113, 0.32);
+  --ok-bg: rgba(74, 222, 128, 0.12);
+  --ok-fg: #86efac;
+  --map-bg: #15171c;
+  --route-1: #00b8d9;
+  --route-2: #7df9ff;
+  --ring-there: #00b8d9;
+  --ring-visit: #fbbf24;
+  --ring-back: #7df9ff;
+  --ring-reserve: rgba(232, 234, 237, 0.16);
+  --ring-track: rgba(232, 234, 237, 0.07);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(232, 234, 237, 0.06);
+  --glow: 0 0 0 1px rgba(0, 184, 217, 0.5), 0 8px 28px rgba(0, 184, 217, 0.28);
+  /* Aliases used by the blocks kept from the previous interface (legacy.css). */
+  --muted: var(--text-2);
+  --line: var(--border);
+  --green: var(--accent);
+  --cream: var(--surface-2);
+  --orange: var(--highlight);
 }
 
-[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #101214;
-  --surface-1: #1c1f22;
-  --surface-2: #16191b;
-  --surface-hover: #262a2e;
-  --surface-selected: #1d3322;
-  --text-1: #f1f3f4;
-  --text-2: #a9b0b6;
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef0f3;
+  --surface-0: #e6e9ee;
+  --surface-1: #ffffff;
+  --surface-2: #f4f6f8;
+  --surface-3: #e9ecf1;
+  --surface-hover: #e4e8ee;
+  --surface-selected: #dff6fb;
+  --glass: rgba(255, 255, 255, 0.9);
+  --text-1: #14161b;
+  --text-2: #4f5866;
+  --text-3: #6b7482;
   --text-on-accent: #ffffff;
-  --border: #2c3135;
-  --border-strong: #3c4247;
-  --accent: #15862a;
-  --accent-hover: #1a9632;
-  --link: #6cb2ff;
-  --highlight: #ffb52e;
-  --highlight-bg: rgba(255, 181, 46, 0.1);
-  --focus: #6cb2ff;
-  --warn-bg: #2b2310;
-  --warn-fg: #f0cb8d;
-  --warn-border: #5a4920;
-  --error-bg: #32190f;
-  --error-fg: #f4ad8e;
-  --error-border: #6b3826;
-  --ok-bg: #173826;
-  --ok-fg: #86d9a8;
-  --map-bg: #1a1d20;
-  --cluster-ring: #3ccf5a40;
-  --cluster-core: #1c1f22;
-  --cluster-text: #7ee08f;
-  --route-1: #6cb2ff;
-  --route-2: #4fd36a;
-  --shadow-1: 0 1px 4px rgba(0, 0, 0, 0.5);
-  --shadow-2: 0 4px 20px rgba(0, 0, 0, 0.6);
+  --border: rgba(20, 22, 27, 0.09);
+  --border-strong: rgba(20, 22, 27, 0.17);
+  --accent: #0087a3;
+  --accent-hover: #007590;
+  --accent-2: #00b8d9;
+  --accent-soft: rgba(0, 135, 163, 0.11);
+  --accent-ink: #006a80;
+  --secondary: #5b6577;
+  --link: #006a80;
+  --highlight: #b45f00;
+  --highlight-bg: rgba(245, 163, 0, 0.12);
+  --focus: #0087a3;
+  --success: #15803d;
+  --warning: #b45f00;
+  --danger: #c2410c;
+  --warn-bg: #fff6e0;
+  --warn-fg: #6f4919;
+  --warn-border: #e8cf94;
+  --error-bg: #fff0e8;
+  --error-fg: #813d22;
+  --error-border: #e2b8a1;
+  --ok-bg: #e2f5e9;
+  --ok-fg: #166534;
+  --map-bg: #f2f3f0;
+  --route-1: #0087a3;
+  --route-2: #00b8d9;
+  --ring-there: #0087a3;
+  --ring-visit: #e0a100;
+  --ring-back: #38bdf8;
+  --ring-reserve: rgba(20, 22, 27, 0.14);
+  --ring-track: rgba(20, 22, 27, 0.06);
+  --shadow-1: 0 1px 2px rgba(20, 22, 27, 0.08);
+  --shadow-2: 0 8px 24px rgba(20, 22, 27, 0.12), 0 1px 3px rgba(20, 22, 27, 0.08);
+  --shadow-panel: 0 20px 50px rgba(20, 22, 27, 0.18), 0 0 0 1px rgba(20, 22, 27, 0.06);
+  --glow: 0 0 0 1px rgba(0, 135, 163, 0.45), 0 8px 24px rgba(0, 135, 163, 0.2);
 }

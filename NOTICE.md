@@ -25,6 +25,8 @@
 
 Интерфейс (версия 4): шрифт Inter (SIL Open Font License 1.1, https://github.com/rsms/inter) поставляется локально в `frontend/src/assets/fonts`; иконки Lucide (ISC License, https://lucide.dev/license) — спрайт `frontend/src/assets/icons.svg`. Оба ресурса взяты из проекта AFM_project того же автора.
 
+Карта (версия 5): MapLibre GL JS (BSD-3-Clause, https://github.com/maplibre/maplibre-gl-js) с векторными тайлами OpenFreeMap (https://openfreemap.org; данные © OpenStreetMap, ODbL; схема OpenMapTiles). Эмодзи: Noto Emoji (Google; изображения Apache 2.0, https://github.com/googlefonts/noto-emoji) и анимации Noto Animated Emoji (Google, CC BY 4.0, https://googlefonts.github.io/noto-emoji-animation/), локально в `frontend/public/emoji` (анимации уменьшены до 96–112 px).
+
 Фото мест (версия 5): главное фото организации показывается только по запросу пользователя (открытие карточки) по публичному адресу CDN 2ГИС, с подписью и ссылкой на страницу 2ГИС; изображения не копируются в проект. Права на фото принадлежат их авторам и 2ГИС; перед публичным использованием проверьте допустимость у правообладателя.
 
 ## Прогулки с гидом, афиша, карта пробелов

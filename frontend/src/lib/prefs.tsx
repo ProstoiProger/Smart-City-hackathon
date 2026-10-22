@@ -38,19 +38,14 @@ function write(key: string, value: string) {
 }
 
 export function PrefsProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() =>
-    read(
-      "theme",
-      ["light", "dark"] as const,
-      window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
-    ),
-  );
+  // The graphite map interface is dark first; light stays one tap away in "Город".
+  const [theme, setTheme] = useState<Theme>(() => read("uiTheme", ["light", "dark"] as const, "dark"));
   const [lang, setLang] = useState<Lang>(() => read("lang", ["ru", "kk", "en"] as const, "ru"));
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0f1613" : "#173d32");
-    write("theme", theme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#14161b" : "#eef0f3");
+    write("uiTheme", theme);
   }, [theme]);
 
   useEffect(() => {
