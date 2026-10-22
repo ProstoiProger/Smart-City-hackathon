@@ -291,6 +291,8 @@ export function MapView({
       pitch: data.current.is3d ? PITCH_3D : 0,
       bearing: data.current.is3d ? -18 : 0,
       maxPitch: 70,
+      // Phones with 3x screens draw at 2x: the map stays sharp and much lighter on the GPU.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       attributionControl: { compact: true },
       // The style's own labels are Latin; ours (pins, chips) carry the local names.
       fadeDuration: 150,
@@ -473,10 +475,10 @@ export function MapView({
     <div className="map-wrap">
       <div ref={el} className="map-canvas" role="region" aria-label={labels.aria} />
       <div className="map-controls">
-        <button type="button" className="map-btn" aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => zoom(1)}>
+        <button type="button" className="map-btn map-zoom" aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => zoom(1)}>
           <Icon name="plus" />
         </button>
-        <button type="button" className="map-btn" aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => zoom(-1)}>
+        <button type="button" className="map-btn map-zoom" aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => zoom(-1)}>
           <Icon name="minus" />
         </button>
         <button

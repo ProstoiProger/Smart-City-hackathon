@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Plan, Poi } from "./api";
-import { CityPage } from "./components/CityPage";
 import { Notification } from "./components/Overlays";
 import { BackendStatus } from "./lib/BackendStatus";
 import { categoryColor, placeEmoji } from "./lib/emoji";
@@ -19,6 +18,10 @@ import { PlaceDetail } from "./ui/PlaceDetail";
 import { Planner } from "./ui/Planner";
 import { Results } from "./ui/Results";
 import { StartPicker } from "./ui/StartPicker";
+import { useSheet } from "./ui/useSheet";
+
+// The gap map pulls in Leaflet: loaded only when it is opened.
+const CityPage = lazy(() => import("./components/CityPage").then((m) => ({ default: m.CityPage })));
 import type { HistoryEntry } from "./lib/history";
 import { useWalk } from "./useWalk";
 
@@ -32,7 +35,6 @@ const TABS: { key: Tab; icon: string }[] = [
 ];
 // Walking pace for the reach circle on the map (≈4.2 km/h), with time kept for a visit.
 const PACE_M_PER_MIN = 70;
-const DESKTOP = 860;
 
 function useStored(key: string, fallback: boolean): [boolean, (v: boolean) => void] {
   const [on, setOn] = useState(() => {
@@ -71,9 +73,9 @@ export default function App() {
   const [cityOpen, setCityOpen] = useState(false);
   const [moreView, setMoreView] = useState<MoreView>(null);
   const [tileError, setTileError] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(true);
   const [spoken, setSpoken] = useStored("spokenReplies", true);
   const panel = useRef<HTMLElement>(null);
+  const sheet = useSheet(panel);
   const body = useRef<HTMLDivElement>(null);
   const focusKey = useRef(0);
   const [focus, setFocus] = useState<{ point: [number, number]; key: number; zoom?: number } | null>(null);
@@ -118,7 +120,7 @@ export default function App() {
   useEffect(() => {
     if (!walk.originFocus || !f.origin) return;
     setStartPicker(false);
-    setSheetOpen(true);
+    sheet.reveal();
     focusKey.current += 1;
     setFocus({ point: f.origin, key: focusKey.current, zoom: 15 });
     // Only a new pick moves the map.
@@ -127,7 +129,7 @@ export default function App() {
 
   // Picking a point needs the map: the sheet folds away on phones.
   useEffect(() => {
-    if (f.picking && window.innerWidth < DESKTOP) setSheetOpen(false);
+    if (f.picking && sheet.sheet) sheet.setSnap("peek");
   }, [f.picking]);
 
   useEffect(() => {
@@ -138,7 +140,7 @@ export default function App() {
     if (!walk.selected) return;
     focusKey.current += 1;
     setFocus({ point: [walk.selected.latitude, walk.selected.longitude], key: focusKey.current, zoom: 16 });
-    setSheetOpen(true);
+    sheet.reveal();
   }, [walk.selected]);
 
   useEffect(() => {
@@ -164,7 +166,7 @@ export default function App() {
     setStartPicker(false);
     f.setPicking(false);
     setTab(next);
-    setSheetOpen(true);
+    sheet.reveal();
   };
 
   // What the map draws follows the screen: the walk and its answer, the nearby list, or a guided tour.
@@ -239,10 +241,12 @@ export default function App() {
     tab === "walk" && stage === "plan" && !walk.tour
       ? Math.round(Math.max(250, (f.walkMode === "loop" ? 0.5 : 1) * Math.max(10, f.minutes - 20) * PACE_M_PER_MIN * 0.7))
       : null;
+  // The panel covers the left side (desktop, phone in landscape) or the bottom (phone sheet).
   const padding = useCallback(() => {
     const r = panel.current?.getBoundingClientRect();
     if (!r) return { top: 0, bottom: 0, left: 0, right: 0 };
-    return window.innerWidth >= DESKTOP
+    const side = r.height > window.innerHeight * 0.7 && r.right < window.innerWidth * 0.7;
+    return side
       ? { top: 0, bottom: 0, left: r.right, right: 0 }
       : { top: 0, bottom: Math.max(0, window.innerHeight - r.top), left: 0, right: 0 };
   }, []);
@@ -346,13 +350,21 @@ export default function App() {
       )}
       {tileError && <div className="tile-error">{t("map.tileError")}</div>}
 
-      <aside ref={panel} className={"panel" + (sheetOpen ? "" : " folded")} aria-label={t("ui.panel")}>
-        <header className="panel-head">
+      <aside
+        ref={panel}
+        className={"panel sheet-" + sheet.snap + (sheet.snap === "peek" ? " folded" : "")}
+        aria-label={t("ui.panel")}
+        // Typing on a phone: the sheet opens in full so the field stays above the keyboard.
+        onFocus={(e) => {
+          if (sheet.sheet && (e.target as HTMLElement).matches("input:not([type=checkbox]):not([type=range]), textarea")) sheet.setSnap("full");
+        }}
+      >
+        <header className="panel-head" {...sheet.handlers}>
           <button
             className="sheet-grip"
-            aria-label={sheetOpen ? t("ui.foldPanel") : t("ui.unfoldPanel")}
-            aria-expanded={sheetOpen}
-            onClick={() => setSheetOpen(!sheetOpen)}
+            aria-label={sheet.snap === "peek" ? t("ui.unfoldPanel") : t("ui.foldPanel")}
+            aria-expanded={sheet.snap !== "peek"}
+            onClick={sheet.gripClick}
           >
             <i />
           </button>
@@ -398,7 +410,11 @@ export default function App() {
         </nav>
       </aside>
       <Notification walk={walk} />
-      {cityOpen && <CityPage onClose={() => setCityOpen(false)} />}
+      {cityOpen && (
+        <Suspense fallback={null}>
+          <CityPage onClose={() => setCityOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 }

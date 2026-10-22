@@ -18,7 +18,8 @@ services:
     image: astana-walk:latest
     <<: *env
     ports:
-      - "127.0.0.1:${APP_PORT:-8090}:8000"
+      # APP_HOST=0.0.0.0 opens the app to phones on the same Wi-Fi (http://<computer-ip>:8090).
+      - "${APP_HOST:-127.0.0.1}:${APP_PORT:-8090}:8000"
     restart: unless-stopped
     networks:
       default:

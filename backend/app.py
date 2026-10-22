@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
@@ -161,6 +162,8 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Astana Walk — Smart City", version="1.1.0", lifespan=lifespan)
+# Phones on mobile data: bundles and answers travel compressed (the JS shrinks ~3.5x).
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
 
 
 class Context(BaseModel):
@@ -1430,6 +1433,23 @@ if dist.exists():
     emoji_dir = next((d for d in (dist / "emoji", ROOT / "frontend" / "public" / "emoji") if d.exists()), None)
     if emoji_dir:
         app.mount("/emoji", EmojiFiles(directory=emoji_dir), name="emoji")
+
+    # Installable app (PWA): icons, the manifest and the service worker from the build root.
+    if (dist / "icons").exists():
+        app.mount("/icons", EmojiFiles(directory=dist / "icons"), name="icons")
+
+    if (dist / "manifest.webmanifest").exists():
+
+        @app.get("/manifest.webmanifest", include_in_schema=False)
+        def manifest():
+            return FileResponse(dist / "manifest.webmanifest", media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
+
+    if (dist / "sw.js").exists():
+
+        @app.get("/sw.js", include_in_schema=False)
+        def service_worker():
+            # Always revalidated: a new deploy must reach installed apps on their next start.
+            return FileResponse(dist / "sw.js", media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
     @app.get("/")
     def index():

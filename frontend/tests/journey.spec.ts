@@ -419,3 +419,50 @@ test("my places: want to go and favourites, on the map, saved walks", async ({ p
   expect((await sent).postDataJSON().query).toContain("парк, кофе и музей");
   await expect(page.locator(".timeline").first()).toBeVisible({ timeout: 30000 });
 });
+
+test("phone: draggable sheet, no zoom-on-focus fields, landscape side panel, installable app", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const panel = page.locator(".panel");
+  await expect(panel).toHaveClass(/sheet-half/);
+  const grip = page.locator(".sheet-grip");
+  const drag = async (dy: number) => {
+    const box = (await grip.boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + dy / 2, { steps: 4 });
+    await page.mouse.move(x, y + dy, { steps: 4 });
+    await page.mouse.up();
+  };
+  await drag(-350);
+  await expect(panel).toHaveClass(/sheet-full/);
+  await drag(600);
+  await expect(panel).toHaveClass(/sheet-peek/);
+  await page.getByRole("button", { name: "Развернуть панель" }).click();
+  await expect(panel).toHaveClass(/sheet-half/);
+
+  // iOS zooms into fields under 16px; typing opens the sheet in full.
+  const sizes = await page.locator("input:not([type=checkbox]):not([type=range]), textarea, select").evaluateAll((els) =>
+    els.filter((e) => (e as HTMLElement).offsetParent).map((e) => parseFloat(getComputedStyle(e).fontSize)),
+  );
+  expect(Math.min(...sizes)).toBeGreaterThanOrEqual(16);
+  await page.locator("#walk-ask").focus();
+  await expect(panel).toHaveClass(/sheet-full/);
+
+  // Pinch zooms on a touch screen: no +/- there; 3D and "my point" stay.
+  await expect(page.getByRole("button", { name: "Показать мою точку на карте" })).toBeVisible();
+
+  // Installable: a manifest with icons, and the files it points to.
+  const manifest = await (await page.request.get("/manifest.webmanifest")).json();
+  expect(manifest.display).toBe("standalone");
+  for (const icon of manifest.icons) expect((await page.request.get(icon.src)).ok()).toBe(true);
+  expect((await page.request.get("/sw.js")).ok()).toBe(true);
+
+  // Phone on its side: the panel moves to the left, the map keeps the rest.
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(330);
+  expect((await panel.boundingBox())!.width).toBeLessThan(420);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

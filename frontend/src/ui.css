@@ -2709,85 +2709,6 @@ button {
   color: var(--text-1);
 }
 
-/* ───────────── Phone: bottom sheet ───────────── */
-@media (max-width: 859px) {
-  .panel {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: auto;
-    height: min(60dvh, 600px);
-    border-radius: 24px 24px 0 0;
-    transition: height 0.45s var(--ease-drawer);
-  }
-  .panel.folded {
-    height: 158px;
-  }
-  .panel.folded .panel-body {
-    overflow: hidden;
-    opacity: 0.35;
-  }
-  .panel-head {
-    padding-top: 20px;
-  }
-  .sheet-grip {
-    display: grid !important;
-    place-items: center;
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 20px;
-  }
-  .sheet-grip i {
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--border-strong);
-  }
-  .brand-city {
-    display: none;
-  }
-  .brand-name {
-    font-size: 19px;
-  }
-  .map-controls {
-    bottom: auto;
-    top: 16px;
-    right: 12px;
-    gap: 8px;
-  }
-  .map-btn {
-    width: 42px;
-    height: 42px;
-    border-radius: 14px;
-  }
-  .notification {
-    left: 50%;
-    top: 14px;
-    bottom: auto;
-    width: calc(100vw - 80px);
-  }
-  .pick-banner {
-    top: 14px;
-    left: 14px;
-    right: 66px;
-    transform: none;
-  }
-  .screen-title {
-    font-size: 23px;
-  }
-  .time-seg b {
-    font-size: 17px;
-  }
-  .tile-error {
-    left: 14px;
-    right: 66px;
-    top: 70px;
-  }
-}
 @media (max-width: 380px) {
   .time-seg {
     grid-template-columns: repeat(3, 1fr);
@@ -3434,4 +3355,283 @@ label.setting {
 }
 .map-pin.saved .map-pin-face {
   border-style: dashed;
+}
+
+/* ───────────── Phones ───────────── */
+/* Safe areas (notch, home bar), no rubber-band scroll of the page, no double-tap zoom on controls. */
+html,
+body {
+  overscroll-behavior: none;
+}
+button,
+a,
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
+.map-controls {
+  right: calc(16px + env(safe-area-inset-right));
+}
+.tabbar {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 859px) {
+  /* Bottom sheet: the height comes from ui/useSheet.ts (peek / half / full). */
+  .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: min(58dvh, 600px);
+    max-height: calc(100dvh - 40px);
+    border-radius: 24px 24px 0 0;
+    transition: height 0.42s var(--ease-drawer);
+    will-change: height;
+  }
+  .panel.dragging {
+    transition: none;
+  }
+  .panel.folded .panel-body {
+    overflow: hidden;
+    visibility: hidden;
+  }
+  .panel-head {
+    padding: 18px 14px 6px 16px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .sheet-grip {
+    display: grid !important;
+    place-items: center;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 26px;
+    cursor: grab;
+  }
+  .sheet-grip i {
+    width: 42px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border-strong);
+  }
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+  .brand-mark svg {
+    width: 17px;
+    height: 17px;
+  }
+  .brand-name {
+    font-size: 18px;
+  }
+  .brand-city {
+    display: none;
+  }
+  .lang-seg button {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+  .panel-body {
+    padding: 2px 16px 0;
+  }
+  .wish-chips {
+    margin: 0 -16px;
+    padding: 2px 16px 4px;
+  }
+  .cta-dock {
+    margin: 0 -16px -16px;
+    padding: 10px 16px 14px;
+  }
+  .cta {
+    padding: 12px 14px 10px;
+  }
+  .cta-main {
+    font-size: 16px;
+  }
+  .screen {
+    gap: 12px;
+  }
+  .screen-title {
+    font-size: 22px;
+  }
+  .time-seg b {
+    font-size: 17px;
+  }
+  /* iOS zooms into any field under 16px on focus: every field is 16px on phones. */
+  input:not([type="checkbox"]):not([type="range"]),
+  select,
+  textarea,
+  .ask-field input,
+  .ask-field.small input,
+  .member-input,
+  .member-from select,
+  .field input,
+  .field select,
+  .composer textarea,
+  .pd-sections .qa-form input {
+    font-size: 16px !important;
+  }
+  /* Finger-sized targets (44px). */
+  .segmented button,
+  .back-btn,
+  .ghost-btn,
+  .soft-btn,
+  .quick-replies button,
+  .filter-pills button,
+  .wish-chip,
+  .history-place,
+  .pill-btn {
+    min-height: 44px;
+  }
+  .round-btn,
+  .round-btn.mark-btn,
+  .mark-btn,
+  .send-btn,
+  .mic-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .round-btn.small {
+    width: 40px;
+    height: 40px;
+  }
+  .tabbar {
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    gap: 2px;
+  }
+  .tabbar button {
+    padding: 8px 2px 7px;
+    font-size: 10.5px;
+    min-height: 54px;
+  }
+  /* Map controls: pinch zooms on a phone, so only 3D and "my point" stay, small, under the notch. */
+  .map-controls {
+    top: calc(12px + env(safe-area-inset-top));
+    bottom: auto;
+    right: calc(12px + env(safe-area-inset-right));
+    gap: 8px;
+  }
+  .map-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+  .notification {
+    left: 50%;
+    top: calc(12px + env(safe-area-inset-top));
+    bottom: auto;
+    width: calc(100vw - 88px);
+  }
+  .pick-banner {
+    top: calc(12px + env(safe-area-inset-top));
+    left: 12px;
+    right: 68px;
+    transform: none;
+  }
+  .tile-error {
+    left: 12px;
+    right: 68px;
+    top: calc(68px + env(safe-area-inset-top));
+  }
+  .map-flag-chip {
+    font-size: 11px;
+    padding: 4px 9px;
+  }
+  .backend-down {
+    padding-top: calc(8px + env(safe-area-inset-top));
+  }
+}
+@media (max-width: 859px) and (pointer: coarse) {
+  .map-zoom {
+    display: none !important;
+  }
+}
+
+/* Phone on its side: the panel goes to the left, full height, like on a desktop. */
+@media (max-width: 1000px) and (orientation: landscape) and (max-height: 520px) {
+  .panel {
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    bottom: 8px;
+    right: auto;
+    width: min(380px, 46vw);
+    height: auto !important;
+    max-height: none;
+    border-radius: 20px;
+  }
+  .sheet-grip {
+    display: none !important;
+  }
+  .panel-head {
+    padding: 10px 12px 4px 14px;
+    cursor: default;
+  }
+  .brand-city {
+    display: none;
+  }
+  .tabbar button {
+    min-height: 46px;
+    padding: 5px 2px;
+    font-size: 10px;
+  }
+  /* Icons only; the names stay for screen readers. */
+  .tabbar button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .map-controls {
+    top: calc(8px + env(safe-area-inset-top));
+    bottom: auto;
+  }
+  .notification {
+    left: auto;
+    right: 70px;
+    transform: none;
+    top: 10px;
+    bottom: auto;
+    width: min(360px, 44vw);
+  }
+}
+@media (max-width: 859px) {
+  .lang-seg button {
+    min-height: 40px;
+  }
+  .brand {
+    padding: 6px 0;
+  }
+  .pd-sections .qa-suggestions button,
+  .link-btn {
+    min-height: 40px;
+  }
+  .pd-sections .qa-suggestions {
+    gap: 6px;
+  }
+}
+@media (max-width: 859px) {
+  /* A place on a phone: its name first, then a shorter photo. */
+  .place-detail .screen-top {
+    order: -2;
+  }
+  .place-detail .pd-head {
+    order: -1;
+  }
+  .pd-photo {
+    height: 160px;
+  }
+  .pd-head .screen-title {
+    font-size: 20px;
+  }
 }
